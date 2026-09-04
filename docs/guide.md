@@ -150,9 +150,6 @@ uv run python main.py week exports/semaine.txt --portions 4
 # Forcer le rafraîchissement des promos (sinon cache 24h)
 uv run python main.py week exports/semaine.txt --refresh-promos
 
-# Workflow dimanche : export promo + analyse courses
-uv run python main.py sunday --list S1 exports/semaine.txt
-
 # Rouvrir l’interface sur la session en cours
 uv run python main.py ui
 ```
@@ -284,7 +281,6 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 | Commande | Usage |
 |----------|--------|
 | `uv run python main.py promos --list S1` | Export ingrédients promo (liste Migros) → Kookd |
-| `uv run python main.py sunday --list S1 exports/semaine.txt` | **Workflow dimanche** : promos + week |
 | `uv run python main.py week <fichier(s)>` | **Workflow unifié** : analyse + favoris + interface |
 | `uv run python main.py week … --portions 4` | Adapter les quantités (base Kookd : 8) |
 | `uv run python main.py week … --refresh-promos` | Forcer le scan promos (ignore le cache) |
@@ -351,10 +347,6 @@ Vérifier les numéros d’option ; ne pas choisir M-Budget. Filtrage à amélio
 ## Workflow type (dimanche)
 
 ```bash
-# Option A — tout-en-un
-uv run python main.py sunday --list S1 exports/semaine.txt
-
-# Option B — étape par étape
 # 1. Export promo → Kookd (choisir recettes)
 uv run python main.py promos --list S1
 

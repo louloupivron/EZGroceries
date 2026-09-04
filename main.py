@@ -118,61 +118,10 @@ def cmd_promos(args: list[str]) -> None:
         sys.exit(1)
 
 
-def cmd_sunday(args: list[str]) -> None:
-    """Chain: promo export → week workflow."""
-    from comida.kookd_export import run_promos_export
-    from comida.week import run_week
-
-    rest, options = _parse_common_flags(args)
-    list_name = options["list_name"]
-    has_explicit_list = "--list" in args
-    recipe_paths: list[Path] = []
-
-    for p in rest:
-        path = Path(p)
-        if path.suffix.lower() == ".txt":
-            recipe_paths.append(path)
-        elif not has_explicit_list and p == rest[0]:
-            list_name = p
-
-    print("=== Étape 1/2 — Export promo pour Kookd ===")
-    try:
-        promo_path = run_promos_export(
-            list_name,
-            apply_pantry=options["apply_pantry"],
-        )
-    except RuntimeError as e:
-        print(f"Erreur export promo : {e}")
-        sys.exit(1)
-    print(f"Export promo : {promo_path}")
-    print("→ Copiez ce fichier dans Kookd si vous n'avez pas encore choisi les recettes.")
-    print()
-
-    if not recipe_paths:
-        default = ROOT / "exports" / "semaine.txt"
-        if default.exists():
-            recipe_paths = [default]
-        else:
-            print("=== Étape 2/2 — Analyse courses ===")
-            print("Aucun export recette fourni (ex. exports/semaine.txt).")
-            print("Après Kookd : uv run python main.py week exports/semaine.txt")
-            return
-
-    print("=== Étape 2/2 — Analyse courses ===")
-    run_week(
-        recipe_paths,
-        open_ui=options["open_ui"],
-        port=options["port"],
-        portions=options["portions"],
-        base_portions=options["base_portions"],
-        refresh_promos=options["refresh_promos"],
-    )
-
-
 def main() -> None:
     args = sys.argv[1:]
     if not args:
-        print("Usage: main.py prepare|week|ui|promos|sunday [options]")
+        print("Usage: main.py prepare|week|ui|promos [options]")
         sys.exit(1)
 
     cmd = args[0]
@@ -198,10 +147,6 @@ def main() -> None:
 
     if cmd == "promos":
         cmd_promos(rest)
-        return
-
-    if cmd == "sunday":
-        cmd_sunday(rest)
         return
 
     if cmd == "show":
