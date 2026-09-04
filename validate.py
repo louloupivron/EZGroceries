@@ -5,7 +5,9 @@ import sys
 from pathlib import Path
 
 from comida.basket import _load_dotenv, list_shopping_lists, push_items, resolved_to_basket_items
+from comida.migros_client import search_products
 from comida.promo_cache import fetch_promotions_cached
+from comida.telegram import run_telegram_setup, run_telegram_test, send_promos_export, send_text
 from comida.validation import (
     accept_option,
     add_search_results,
@@ -126,6 +128,28 @@ def cmd_push(args: list[str]) -> None:
     else:
         print(checkout.get("message", "Checkout non disponible."))
 
+    if os.environ.get("TELEGRAM_SEND_ON_PUSH", "").strip().lower() in ("1", "true", "yes"):
+        _maybe_send_push_telegram(checkout, result)
+
+
+def _maybe_send_push_telegram(checkout: dict, result: dict) -> None:
+    lines = ["🛒 Panier Migros poussé"]
+    if checkout.get("ok"):
+        lines.append(f"Articles : {checkout.get('itemCount', '?')}")
+        lines.append(f"Total : ~{checkout.get('onlineTotal', '?')} CHF")
+        if checkout.get("checkoutUrl"):
+            lines.append(f"Checkout : {checkout['checkoutUrl']}")
+    slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
+    if slug:
+        lines.append(f"Liste : https://www.migros.ch/list/{slug}")
+    try:
+        from comida.telegram import TelegramConfig, send_message
+
+        send_message("\n".join(lines), config=TelegramConfig.from_env())
+        print("✓ Résumé envoyé sur Telegram")
+    except RuntimeError as e:
+        print(f"⚠ Telegram : {e}")
+
 
 def cmd_lists() -> None:
     _load_dotenv()
@@ -185,6 +209,43 @@ def cmd_favorites() -> None:
     print(format_favorites_list(products))
 
 
+def cmd_telegram_setup() -> None:
+    run_telegram_setup()
+
+
+def cmd_telegram_test() -> None:
+    try:
+        run_telegram_test()
+    except RuntimeError as e:
+        print(f"Erreur : {e}")
+        sys.exit(1)
+
+
+def cmd_send(args: list[str]) -> None:
+    if not args:
+        print("Usage: validate.py send <fichier.txt> [--title \"Titre\"]")
+        sys.exit(1)
+    path = Path(args[0])
+    if not path.exists():
+        print(f"Fichier introuvable : {path}")
+        sys.exit(1)
+    title = None
+    if "--title" in args:
+        idx = args.index("--title")
+        if idx + 1 < len(args):
+            title = args[idx + 1]
+    try:
+        if path.name.startswith("promos-"):
+            list_name = path.stem.replace("promos-", "").upper()
+            send_promos_export(path, list_name)
+        else:
+            send_text(path, title=title)
+        print(f"✓ Envoyé sur Telegram : {path}")
+    except RuntimeError as e:
+        print(f"Erreur : {e}")
+        sys.exit(1)
+
+
 def cmd_refresh() -> None:
     try:
         session = load_session()
@@ -203,7 +264,7 @@ def cmd_refresh() -> None:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|lists|favorites|refresh")
+        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|send|lists|favorites|refresh|telegram-setup|telegram-test")
         sys.exit(1)
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -229,6 +290,12 @@ def main() -> None:
         cmd_favorites()
     elif cmd == "refresh":
         cmd_refresh()
+    elif cmd == "telegram-setup":
+        cmd_telegram_setup()
+    elif cmd == "telegram-test":
+        cmd_telegram_test()
+    elif cmd == "send":
+        cmd_send(args)
     else:
         print(f"Commande inconnue : {cmd}")
         sys.exit(1)

@@ -20,6 +20,7 @@ def _parse_common_flags(args: list[str]) -> tuple[list[str], dict]:
         "base_portions": DEFAULT_PORTIONS,
         "refresh_promos": False,
         "apply_pantry": False,
+        "telegram": False,
         "list_name": "S1",
         "output": None,
     }
@@ -32,6 +33,8 @@ def _parse_common_flags(args: list[str]) -> tuple[list[str], dict]:
             options["refresh_promos"] = True
         elif arg == "--pantry":
             options["apply_pantry"] = True
+        elif arg == "--telegram":
+            options["telegram"] = True
         elif arg == "--port" and i + 1 < len(args):
             options["port"] = int(args[i + 1])
             i += 1
@@ -101,6 +104,7 @@ def cmd_ui(args: list[str]) -> None:
 
 def cmd_promos(args: list[str]) -> None:
     from comida.kookd_export import run_promos_export
+    from comida.telegram import send_promos_export, telegram_auto_send_enabled
 
     rest, options = _parse_common_flags(args)
     list_name = options["list_name"]
@@ -108,7 +112,7 @@ def cmd_promos(args: list[str]) -> None:
         list_name = rest[0]
 
     try:
-        run_promos_export(
+        out = run_promos_export(
             list_name,
             output=options["output"],
             apply_pantry=options["apply_pantry"],
@@ -116,6 +120,15 @@ def cmd_promos(args: list[str]) -> None:
     except RuntimeError as e:
         print(f"Erreur : {e}")
         sys.exit(1)
+
+    if options["telegram"] or telegram_auto_send_enabled():
+        try:
+            send_promos_export(out, list_name)
+            print(f"✓ Envoyé sur Telegram (topic Comida)")
+        except RuntimeError as e:
+            print(f"⚠ Telegram : {e}")
+            print("  Configurez .env puis : uv run python validate.py telegram-setup")
+            sys.exit(1)
 
 
 def main() -> None:

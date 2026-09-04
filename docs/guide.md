@@ -15,6 +15,8 @@ Automatiser les courses Migros Online depuis des exports **Kookd**, avec workflo
 
 ```bash
 uv run python main.py promos --list S1
+# Partager dans le topic Comida du groupe Telegram (coloc) :
+uv run python main.py promos --list S1 --telegram
 # ou : uv run python main.py promos S1 -o exports/promos-kookd.txt
 ```
 
@@ -34,6 +36,31 @@ uv run python main.py week exports/semaine.txt
 
 3. Ajouter les favoris manquants sur Migros si besoin, puis pousser vers le panier.
 4. Pousser vers Migros et checkout sur migros.ch.
+
+---
+
+## Telegram (topic Comida — coloc)
+
+Partager la liste promo dans le groupe Telegram (ex. **Betty's coloc**, topic **Comida**).
+
+**Guide détaillé (setup, dépannage, checklist) :** [telegram-setup.md](telegram-setup.md)
+
+### Configuration rapide
+
+1. Bot via [@BotFather](https://t.me/BotFather) → `TELEGRAM_BOT_TOKEN` dans `.env`
+2. Group Privacy **off** (BotFather → Bot Settings)
+3. Bot ajouté au groupe → message `@JeanThimBot test` dans le topic **Comida**
+4. `uv run python validate.py telegram-setup` → copier les ids dans `.env`
+5. `uv run python validate.py telegram-test`
+
+### Utilisation
+
+```bash
+uv run python main.py promos --list S1 --telegram
+uv run python validate.py send exports/promos-s1.txt
+```
+
+Variables optionnelles : `TELEGRAM_AUTO_SEND`, `TELEGRAM_SEND_ON_PUSH` (voir [telegram-setup.md](telegram-setup.md)).
 
 ---
 
@@ -280,7 +307,7 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 
 | Commande | Usage |
 |----------|--------|
-| `uv run python main.py promos --list S1` | Export ingrédients promo (liste Migros) → Kookd |
+| `uv run python main.py promos --list S1 --telegram` | Export promo + partage topic Comida |
 | `uv run python main.py week <fichier(s)>` | **Workflow unifié** : analyse + favoris + interface |
 | `uv run python main.py week … --portions 4` | Adapter les quantités (base Kookd : 8) |
 | `uv run python main.py week … --refresh-promos` | Forcer le scan promos (ignore le cache) |
@@ -295,6 +322,9 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 | `uv run python validate.py search <clé> <terme>` | Recherche Migros (correction) |
 | `uv run python validate.py accept <clé> <n°>` | Confirmer après search/reopen |
 | `uv run python validate.py push` | Envoyer au panier Migros |
+| `uv run python validate.py telegram-setup` | Configurer le groupe / topic Telegram |
+| `uv run python validate.py telegram-test` | Message de test dans le topic Comida |
+| `uv run python validate.py send <fichier>` | Envoyer un export sur Telegram |
 
 ---
 
