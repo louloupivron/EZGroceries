@@ -11,9 +11,11 @@ from comida.matcher import (
     _product_id,
     _promo_candidates,
 )
-from comida.migros_client import fetch_all_promotion_ids, fetch_product_details, search_products
+from comida.migros_client import search_products
 from comida.pantry import filter_pantry
-from comida.parser import Ingredient, merge_ingredients, parse_kookd_export
+from comida.parser import Ingredient, merge_ingredients, parse_kookd_export, scale_ingredients
+from comida.promo_cache import fetch_promotions_cached
+from comida.quantities import DEFAULT_PORTIONS
 from comida.synonyms import search_terms
 
 
@@ -21,14 +23,25 @@ def run_promo_first(
     recipe_path: Path,
     pantry_path: Path,
     max_promo_products: int = 1224,
+    *,
+    portions: int = DEFAULT_PORTIONS,
+    base_portions: int = DEFAULT_PORTIONS,
+    refresh_promos: bool = False,
 ) -> dict:
     text = recipe_path.read_text(encoding="utf-8")
     ingredients = parse_kookd_export(text)
+    ingredients = scale_ingredients(
+        ingredients,
+        base_portions=base_portions,
+        target_portions=portions,
+    )
     return _run_promo_first_on_ingredients(
         ingredients,
         pantry_path,
         recipe_label=str(recipe_path),
         max_promo_products=max_promo_products,
+        refresh_promos=refresh_promos,
+        portions=portions,
     )
 
 
@@ -36,6 +49,10 @@ def run_promo_first_multi(
     recipe_paths: list[Path],
     pantry_path: Path,
     max_promo_products: int = 1224,
+    *,
+    portions: int = DEFAULT_PORTIONS,
+    base_portions: int = DEFAULT_PORTIONS,
+    refresh_promos: bool = False,
 ) -> dict:
     all_ingredients: list[Ingredient] = []
     labels: list[str] = []
@@ -44,12 +61,19 @@ def run_promo_first_multi(
         all_ingredients.extend(parse_kookd_export(text))
         labels.append(path.name)
     merged = merge_ingredients(all_ingredients)
+    merged = scale_ingredients(
+        merged,
+        base_portions=base_portions,
+        target_portions=portions,
+    )
     recipe_label = ", ".join(labels) if len(labels) > 1 else (labels[0] if labels else "?")
     return _run_promo_first_on_ingredients(
         merged,
         pantry_path,
         recipe_label=recipe_label,
         max_promo_products=max_promo_products,
+        refresh_promos=refresh_promos,
+        portions=portions,
     )
 
 
@@ -58,15 +82,17 @@ def _run_promo_first_on_ingredients(
     pantry_path: Path,
     recipe_label: str,
     max_promo_products: int = 1224,
+    *,
+    refresh_promos: bool = False,
+    portions: int = DEFAULT_PORTIONS,
 ) -> dict:
     to_buy, skipped = filter_pantry(ingredients, pantry_path)
 
-    promo_ids_list = fetch_all_promotion_ids()
+    promo_ids_list, promo_products, promo_meta = fetch_promotions_cached(
+        force_refresh=refresh_promos,
+        max_promo_products=max_promo_products,
+    )
     promo_ids = set(promo_ids_list)
-
-    # For the demo, cap promo detail fetches (full catalog is ~1200 products)
-    sample_ids = promo_ids_list[:max_promo_products]
-    promo_products = fetch_product_details(sample_ids)
 
     matches: list[ProductMatch] = []
     unmatched: list[str] = []
@@ -102,11 +128,14 @@ def _run_promo_first_on_ingredients(
 
     return {
         "recipe": recipe_label,
+        "portions": portions,
         "ingredients_total": len(ingredients),
         "pantry_skipped": [(i.raw, rule) for i, rule in skipped],
         "to_buy_count": len(to_buy),
-        "promotions_indexed": len(sample_ids),
-        "promotions_total": len(promo_ids_list),
+        "promotions_indexed": promo_meta["promotions_indexed"],
+        "promotions_total": promo_meta["promotions_total"],
+        "promotions_from_cache": promo_meta["from_cache"],
+        "promotions_fetched_at": promo_meta.get("fetched_at"),
         "matches": [_format_match(m) for m in matches],
         "ambiguous": [_format_match(m) for m in ambiguous],
         "unmatched": unmatched,
@@ -119,7 +148,7 @@ def _format_match(match: ProductMatch) -> dict:
     return {
         "ingredient": match.ingredient.raw,
         "ingredient_name": match.ingredient.name,
-        "quantity_needed": f"{match.ingredient.quantity} {match.ingredient.unit}",
+        "quantity_needed": f"{match.ingredient.quantity:g} {match.ingredient.unit}",
         "product_uid": _product_id(product),
         "name": _display_name(product),
         "package": offer.get("quantity"),
@@ -133,8 +162,8 @@ def _format_match(match: ProductMatch) -> dict:
                 "uid": _product_id(alt),
                 "name": _display_name(alt),
                 "price_chf": _price_chf(alt),
+                "package": (alt.get("offer") or {}).get("quantity"),
             }
             for alt in match.alternatives
         ],
     }
-

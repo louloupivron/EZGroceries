@@ -1,7 +1,9 @@
 """Parse Kookd text export lines into structured ingredients."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+
+from comida.quantities import DEFAULT_PORTIONS
 
 LINE_RE = re.compile(
     r"^-\s*"
@@ -69,3 +71,30 @@ def merge_ingredients(ingredients: list[Ingredient]) -> list[Ingredient]:
         else:
             merged.extend(group)
     return merged
+
+
+def scale_ingredients(
+    ingredients: list[Ingredient],
+    *,
+    base_portions: int = DEFAULT_PORTIONS,
+    target_portions: int = DEFAULT_PORTIONS,
+) -> list[Ingredient]:
+    """Scale recipe quantities from Kookd base portions to target portions."""
+    if base_portions <= 0 or target_portions <= 0:
+        raise ValueError("Les portions doivent être > 0")
+    if base_portions == target_portions:
+        return ingredients
+
+    factor = target_portions / base_portions
+    scaled: list[Ingredient] = []
+    for ing in ingredients:
+        new_qty = ing.quantity * factor
+        qty_str = f"{new_qty:g}"
+        scaled.append(
+            replace(
+                ing,
+                quantity=new_qty,
+                raw=f"- {qty_str} {ing.unit} {ing.name}",
+            )
+        )
+    return scaled

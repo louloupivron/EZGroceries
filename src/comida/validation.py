@@ -6,6 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from comida.matcher import _display_name, _price_chf, _product_id
+from comida.budget import estimate_basket, format_budget_summary, format_basket_enriched
+from comida.quantities import compute_basket_quantity
 from comida.mappings import (
     DEFAULT_PATH as MAPPINGS_PATH,
     get_entry,
@@ -215,8 +217,10 @@ def build_validation_session(pipeline_result: dict, mappings_path: Path = MAPPIN
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "recipe": pipeline_result.get("recipe"),
+        "portions": pipeline_result.get("portions"),
         "agent_instructions": AGENT_INSTRUCTIONS.strip(),
         "promotions_total": pipeline_result.get("promotions_total"),
+        "promotions_from_cache": pipeline_result.get("promotions_from_cache"),
         "pantry_skipped": pipeline_result.get("pantry_skipped", []),
         "pending": pending,
         "unmatched": unmatched_pending,
@@ -247,9 +251,8 @@ def load_session(path: Path = SESSION_PATH) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _parse_basket_quantity(quantity: str | None) -> int:
-    """MVP: 1 unit per line; user adjusts packs in Migros UI."""
-    return 1
+def _parse_basket_quantity(quantity: str | None, package: str | None = None) -> int:
+    return compute_basket_quantity(quantity, package)
 
 
 def find_item_by_key(session: dict, key_fragment: str) -> tuple[dict | None, str | None]:
@@ -425,7 +428,9 @@ def accept_option(session: dict, key_fragment: str, rank: int) -> dict:
         "name": option["name"],
         "on_promotion": option.get("on_promotion"),
         "quantity": item.get("quantity"),
-        "quantity_parsed": _parse_basket_quantity(item.get("quantity")),
+        "package": option.get("package"),
+        "price_chf": option.get("price_chf"),
+        "quantity_parsed": _parse_basket_quantity(item.get("quantity"), option.get("package")),
         "source": item.get("validation_reason", "promo"),
     })
     session["pending"] = [p for p in session["pending"] if p["key"] != item["key"]]
@@ -576,6 +581,7 @@ def _resolved_entry(
     product: dict,
     source: str,
 ) -> dict:
+    package = product.get("package")
     return {
         "key": key,
         "ingredient_name": ingredient_name,
@@ -583,7 +589,9 @@ def _resolved_entry(
         "name": product["name"],
         "on_promotion": product.get("on_promotion", False),
         "quantity": quantity,
-        "quantity_parsed": _parse_basket_quantity(quantity),
+        "package": package,
+        "price_chf": product.get("price_chf"),
+        "quantity_parsed": _parse_basket_quantity(quantity, package),
         "source": source,
     }
 
@@ -662,11 +670,10 @@ def apply_favorites_workflow(
 
 def refresh_favorites_workflow(session: dict) -> dict:
     """Re-fetch favorites and re-apply workflow on current session."""
-    from comida.favorites import fetch_favorites_with_details
-    from comida.migros_client import fetch_all_promotion_ids
+    from comida.promo_cache import fetch_promotions_cached
 
     favorite_products = fetch_favorites_with_details()
-    promo_ids = set(fetch_all_promotion_ids())
+    promo_ids = set(fetch_promotions_cached()[0])
 
     # Rebuild pending from resolved favorites + needs_favorite + pending promos
     rebuilt_pending: list[dict] = []
@@ -753,5 +760,16 @@ def validation_summary(session: dict) -> str:
         lines.append("Liste panier :")
         for r in resolved:
             promo = " [PROMO]" if r.get("on_promotion") else ""
-            lines.append(f"  • {r['ingredient_name']} → {r['name']}{promo} (uid {r['uid']})")
+            qty = r.get("quantity_parsed", 1)
+            qty_s = f" × {qty}" if qty and qty > 1 else ""
+            lines.append(
+                f"  • {r['ingredient_name']} → {r['name']}{qty_s}{promo} (uid {r['uid']})"
+            )
+        budget = estimate_basket(resolved)
+        lines.append("")
+        lines.append(format_budget_summary(budget))
     return "\n".join(lines)
+
+
+def basket_summary(session: dict) -> str:
+    return format_basket_enriched(session.get("resolved", []))

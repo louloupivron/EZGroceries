@@ -5,10 +5,11 @@ import sys
 from pathlib import Path
 
 from comida.basket import _load_dotenv, list_shopping_lists, push_items, resolved_to_basket_items
-from comida.migros_client import fetch_all_promotion_ids, search_products
+from comida.promo_cache import fetch_promotions_cached
 from comida.validation import (
     accept_option,
     add_search_results,
+    basket_summary,
     format_for_agent,
     load_session,
     reopen_item,
@@ -59,7 +60,7 @@ def cmd_search(args: list[str]) -> None:
     key, query = args[0], " ".join(args[1:])
     session = load_session()
     products = search_products(query, size=8)
-    promo_ids = set(fetch_all_promotion_ids())
+    promo_ids = set(fetch_promotions_cached()[0])
     session = add_search_results(session, key, products, promo_ids)
     save_session(session)
     print(session.get("_last_message", "Recherche terminée."))
@@ -165,6 +166,11 @@ def cmd_reopen(args: list[str]) -> None:
     print(session.get("_last_message", "Rouvert."))
 
 
+def cmd_basket() -> None:
+    session = load_session()
+    print(basket_summary(session))
+
+
 def cmd_summary() -> None:
     session = load_session()
     print(validation_summary(session))
@@ -197,7 +203,7 @@ def cmd_refresh() -> None:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: validate.py show|accept|reject|search|reopen|summary|push|lists|favorites|refresh")
+        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|lists|favorites|refresh")
         sys.exit(1)
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -213,6 +219,8 @@ def main() -> None:
         cmd_reopen(args)
     elif cmd == "summary":
         cmd_summary()
+    elif cmd == "basket":
+        cmd_basket()
     elif cmd == "push":
         cmd_push(args)
     elif cmd == "lists":

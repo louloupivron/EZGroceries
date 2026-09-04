@@ -1,4 +1,4 @@
-"""Unified weekly workflow: promo + favorites auto-resolve, optional UI."""
+"""Unified weekly workflow: prepare + auto-accept + optional UI."""
 
 from __future__ import annotations
 
@@ -8,7 +8,8 @@ from pathlib import Path
 from comida.pipeline import run_promo_first, run_promo_first_multi
 from comida.ui.server import serve
 from comida.favorites import fetch_favorites_with_details
-from comida.migros_client import fetch_all_promotion_ids
+from comida.promo_cache import fetch_promotions_cached
+from comida.quantities import DEFAULT_PORTIONS
 from comida.validation import (
     apply_favorites_workflow,
     build_validation_session,
@@ -31,7 +32,10 @@ def resolve_recipe_paths(paths: list[Path]) -> list[Path]:
 
     exports = ROOT / "exports"
     if exports.is_dir():
-        files = sorted(exports.glob("*.txt"))
+        files = sorted(
+            p for p in exports.glob("*.txt")
+            if not p.name.startswith("promos-")
+        )
         if files:
             return files
 
@@ -44,43 +48,64 @@ def run_week(
     pantry_path: Path | None = None,
     open_ui: bool = True,
     port: int = 8765,
+    portions: int = DEFAULT_PORTIONS,
+    base_portions: int = DEFAULT_PORTIONS,
+    refresh_promos: bool = False,
 ) -> dict:
     pantry = pantry_path or (ROOT / "garde-manger.txt")
     paths = resolve_recipe_paths(recipe_paths or [])
 
-    print("Analyse Migros en cours (promos + favoris)…")
+    cache_hint = " (cache promos)" if not refresh_promos else " (refresh promos)"
+    print(f"Analyse Migros en cours (promos + favoris){cache_hint}…")
+    if portions != base_portions:
+        print(f"  Portions : {portions} (base Kookd : {base_portions})")
     if len(paths) == 1:
-        result = run_promo_first(paths[0], pantry)
+        result = run_promo_first(
+            paths[0],
+            pantry,
+            portions=portions,
+            base_portions=base_portions,
+            refresh_promos=refresh_promos,
+        )
     else:
         print(f"  {len(paths)} export(s) Kookd fusionnés")
-        result = run_promo_first_multi(paths, pantry)
+        result = run_promo_first_multi(
+            paths,
+            pantry,
+            portions=portions,
+            base_portions=base_portions,
+            refresh_promos=refresh_promos,
+        )
+
+    if result.get("promotions_from_cache"):
+        print(f"  Promos depuis le cache ({result.get('promotions_indexed')} produits)")
+    else:
+        print(f"  Promos rafraîchies ({result.get('promotions_indexed')} produits)")
 
     print("Chargement des favoris Migros…")
     favorite_products = fetch_favorites_with_details()
-    promo_ids = set(fetch_all_promotion_ids())
+    promo_ids_list, _, _ = fetch_promotions_cached(force_refresh=refresh_promos)
+    promo_ids = set(promo_ids_list)
 
     session = build_validation_session(result)
     session = apply_favorites_workflow(session, favorite_products, promo_ids)
     path = save_session(session)
 
     fav_resolved = session.get("favorites_resolved", [])
-    promo_resolved = session.get("promos_resolved", [])
     needs_fav = session.get("needs_favorite", [])
     pending = sum(1 for p in session["pending"] if p["status"] == "pending")
 
     print(f"Session créée : {path}")
     print(f"  {session.get('favorites_count', 0)} favori(s) Migros chargé(s)")
-    if promo_resolved:
-        print(f"✓ {len(promo_resolved)} via promos : {', '.join(promo_resolved)}")
     if fav_resolved:
         print(f"✓ {len(fav_resolved)} via favoris : {', '.join(fav_resolved)}")
     if needs_fav:
         print(f"⚠ {len(needs_fav)} favori(s) manquant(s) : {', '.join(i['ingredient_name'] for i in needs_fav)}")
         print("  → Ajoutez-les sur https://www.migros.ch/fr/my-products puis validate.py refresh")
     if pending:
-        print(f"→ {pending} correction(s) en attente")
+        print(f"→ {pending} promo(s) à valider")
     elif not needs_fav:
-        print("→ Tout est résolu — prêt pour le push Migros")
+        print("→ Tout est validé — prêt pour le push Migros")
     print()
     print(validation_summary(session))
 

@@ -80,6 +80,7 @@ cp .env.example .env
 | `MIGROS_SHOPPING_LIST_NAME` | Recommandé | Nom de la liste cible, ex. `Les Avengers` |
 | `MIGROS_SHOPPING_LIST_ID` | Alternative | Id numérique (prioritaire sur le nom) |
 | `MIGROS_LIST_SLUG` | Optionnel | Slug affiché après push (lien partagé) |
+| `MIGROS_MIN_DELIVERY_CHF` | Optionnel | Seuil livraison pour l'estimation budget (défaut : 99) |
 
 Lister vos listes et vérifier la cible :
 
@@ -112,11 +113,12 @@ Fichier : `garde-manger.txt`
 
 - Lignes normales = ingrédients **déjà en stock** (non ajoutés aux courses).
 - Lignes `+` = **toujours acheter**, même si le garde-manger correspond.
+- **Quantités** : `riz 2 kg`, `500 g farine` — le stock est déduit des besoins recette.
 
 Exemple :
 
 ```text
-riz
+riz 2 kg
 vinaigre
 huile en tout genre
 
@@ -142,6 +144,15 @@ uv run python main.py week exports/lun.txt exports/mer.txt exports/ven.txt
 # Sans ouvrir le navigateur (terminal seulement)
 uv run python main.py week exports/semaine.txt --no-ui
 
+# Adapter les portions (Kookd exporté pour 8, cuisiner pour 4)
+uv run python main.py week exports/semaine.txt --portions 4
+
+# Forcer le rafraîchissement des promos (sinon cache 24h)
+uv run python main.py week exports/semaine.txt --refresh-promos
+
+# Workflow dimanche : export promo + analyse courses
+uv run python main.py sunday --list S1 exports/semaine.txt
+
 # Rouvrir l’interface sur la session en cours
 uv run python main.py ui
 ```
@@ -149,15 +160,17 @@ uv run python main.py ui
 **Ce que fait `week` :**
 
 - Parse l’export Kookd (ou fusionne plusieurs exports)
-- Applique le garde-manger
-- Indexe les promos Migros de la semaine
+- Applique le garde-manger (avec déduction des stocks)
+- Indexe les promos Migros (cache local 24h, `--refresh-promos` pour forcer)
 - **Charge vos favoris Migros** (Mes produits)
 - Résout automatiquement les ingrédients **en promo** (favori s’il est en offre, sinon meilleure promo)
 - Résout automatiquement les ingrédients avec un favori correspondant (hors promo)
+- Calcule les **quantités panier** (paquets Migros selon besoin recette)
+- Affiche une **estimation budget** et l’écart au minimum livraison
 - Signale les ingrédients **sans favori ni promo** → à ajouter sur [migros.ch/fr/my-products](https://www.migros.ch/fr/my-products)
 - Ouvre l’interface sur http://127.0.0.1:8765
 
-Durée typique : ~30–45 s (scan des promos).
+Durée typique : ~20 s avec cache promos, ~45 s au premier scan.
 
 ### Alternative : `prepare` (CLI / Cursor)
 
@@ -271,11 +284,15 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 | Commande | Usage |
 |----------|--------|
 | `uv run python main.py promos --list S1` | Export ingrédients promo (liste Migros) → Kookd |
+| `uv run python main.py sunday --list S1 exports/semaine.txt` | **Workflow dimanche** : promos + week |
 | `uv run python main.py week <fichier(s)>` | **Workflow unifié** : analyse + favoris + interface |
+| `uv run python main.py week … --portions 4` | Adapter les quantités (base Kookd : 8) |
+| `uv run python main.py week … --refresh-promos` | Forcer le scan promos (ignore le cache) |
 | `uv run python main.py ui` | Rouvrir l’interface sur la session en cours |
 | `uv run python main.py prepare <fichier>` | Analyse + résolution auto (CLI) |
 | `uv run python validate.py show` | Afficher la session |
-| `uv run python validate.py summary` | État + liste résolue |
+| `uv run python validate.py summary` | État + liste résolue + budget |
+| `uv run python validate.py basket` | Panier détaillé (noms, quantités, prix) |
 | `uv run python validate.py favorites` | Lister vos favoris Migros |
 | `uv run python validate.py refresh` | Recharger favoris après ajout sur Migros |
 | `uv run python validate.py reopen <clé>` | Rouvrir un produit pour le corriger |
@@ -289,7 +306,8 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 
 | Fichier | Rôle |
 |---------|------|
-| `garde-manger.txt` | Stock maison + exceptions `+` |
+| `garde-manger.txt` | Stock maison (quantités) + exceptions `+` |
+| `data/promo_cache.json` | Cache promos Migros (TTL 24h) |
 | `data/validation_session.json` | Session courante de validation |
 | `mappings.json` | Choix mémorisés (uid, backups, refus) |
 | `.env` | Identifiants et liste cible (secret) |
@@ -333,18 +351,28 @@ Vérifier les numéros d’option ; ne pas choisir M-Budget. Filtrage à amélio
 ## Workflow type (dimanche)
 
 ```bash
-# 1. Export Kookd → exports/semaine.txt
+# Option A — tout-en-un
+uv run python main.py sunday --list S1 exports/semaine.txt
 
-# 2. Analyse (promos + favoris auto)
+# Option B — étape par étape
+# 1. Export promo → Kookd (choisir recettes)
+uv run python main.py promos --list S1
+
+# 2. Export Kookd → exports/semaine.txt
+
+# 3. Analyse (promos + favoris auto, cache promos)
 uv run python main.py week exports/semaine.txt
 
-# 3. Ajouter les favoris manquants sur migros.ch/fr/my-products si besoin
+# 4. Ajouter les favoris manquants sur migros.ch/fr/my-products si besoin
 uv run python validate.py refresh
 
-# 4. Pousser depuis l’interface ou :
+# 5. Vérifier le panier et le budget
+uv run python validate.py basket
+
+# 6. Pousser depuis l’interface ou :
 uv run python validate.py push
 
-# 5. Checkout sur migros.ch
+# 7. Checkout sur migros.ch
 ```
 
 ---

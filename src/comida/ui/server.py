@@ -10,7 +10,9 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from comida.basket import push_items, resolved_to_basket_items
-from comida.migros_client import fetch_all_promotion_ids, search_products
+from comida.budget import estimate_basket
+from comida.migros_client import search_products
+from comida.promo_cache import fetch_promotions_cached
 from comida.validation import (
     accept_option,
     add_search_results,
@@ -96,8 +98,10 @@ class ComidaHandler(BaseHTTPRequestHandler):
         needs_favorite = session.get("needs_favorite", [])
         resolved = session.get("resolved", [])
         total = len(pending) + len(manual) + len(needs_favorite) + len(resolved)
+        budget = estimate_basket(resolved) if resolved else None
         self._send_json({
             "recipe": session.get("recipe"),
+            "portions": session.get("portions"),
             "favorites_resolved": session.get("favorites_resolved", []),
             "promos_resolved": session.get("promos_resolved", []),
             "favorites_count": session.get("favorites_count", 0),
@@ -106,6 +110,7 @@ class ComidaHandler(BaseHTTPRequestHandler):
             "manual": manual,
             "needs_favorite": needs_favorite,
             "resolved": resolved,
+            "budget": budget,
             "my_products_url": "https://www.migros.ch/fr/my-products",
             "summary": validation_summary(session),
             "stats": {
@@ -139,7 +144,7 @@ class ComidaHandler(BaseHTTPRequestHandler):
         data = self._read_json()
         session = load_session()
         products = search_products(data["query"], size=8)
-        promo_ids = set(fetch_all_promotion_ids())
+        promo_ids = set(fetch_promotions_cached()[0])
         session = add_search_results(session, data["key"], products, promo_ids)
         save_session(session)
         self._send_json({
