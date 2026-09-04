@@ -1,0 +1,8 @@
+# Règles manuelles pour l'export Kookd (promos depuis liste Migros).
+# + mot-clé  → toujours inclure (même si filtre automatique exclurait)
+# - mot-clé  → toujours exclure
+
+# Momos : plat préparé mais inclus (accompagné de riz + sauce à cuisiner)
++ momos
+# Avocat : fruit salé (salade, guacamole)
++ avocat

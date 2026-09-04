@@ -1,0 +1,89 @@
+{
+  "created_at": "2026-09-02T21:27:19.672499+00:00",
+  "recipe": "/Users/latruitegauloise/Desktop/perso/Migros/examples/sushi_bowl.txt",
+  "agent_instructions": "Tu aides à valider les choix alimentaires Comida (workflow favoris Migros).\n\nFichier de session : data/validation_session.json\n\nRègles :\n- Les produits hors promo sont résolus via les favoris Migros (Mes produits).\n- Si aucun favori ne correspond : l'utilisateur doit l'ajouter sur migros.ch/fr/my-products\n  puis relancer `uv run python main.py week` ou `validate.py refresh`.\n- Seules les offres / promos de la semaine nécessitent une validation manuelle.\n\nPour chaque ingrédient en `pending` (promo) :\n  uv run python validate.py accept <clé> <n°>   # choisir la promo\n  uv run python validate.py reject <clé>         # garder le favori habituel\n\nQuand tout est résolu : uv run python validate.py summary\nPuis : uv run python validate.py push",
+  "promotions_total": 1224,
+  "pantry_skipped": [
+    [
+      "- 3 pincée Sel et poivre",
+      "sel et épices"
+    ],
+    [
+      "- 40 ml Vinaigre de riz",
+      "vinaigre"
+    ],
+    [
+      "- 10 ml Huile d'olive",
+      "huile en tout genre"
+    ]
+  ],
+  "pending": [],
+  "unmatched": [],
+  "needs_favorite": [
+    {
+      "key": "lardons-fumes",
+      "ingredient_name": "Lardons fumés",
+      "quantity": "200.0 g",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "creme-epaisse",
+      "ingredient_name": "Crème fraîche épaisse",
+      "quantity": "200.0 ml",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "algue-nori",
+      "ingredient_name": "Feuilles d'algue nori",
+      "quantity": "4.0 feuilles",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "saumon",
+      "ingredient_name": "Saumon frais",
+      "quantity": "200.0 g",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "avocat",
+      "ingredient_name": "Avocat",
+      "quantity": "1.0 pièce",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "concombre",
+      "ingredient_name": "Concombre",
+      "quantity": "0.5 pièce",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    },
+    {
+      "key": "graines-sesame",
+      "ingredient_name": "Graines de sésame",
+      "quantity": "2.0 c.à.s",
+      "status": "needs_favorite",
+      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
+    }
+  ],
+  "resolved": [
+    {
+      "key": "courgette",
+      "ingredient_name": "Courgette",
+      "uid": 100045653,
+      "name": "Zucchetti",
+      "on_promotion": false,
+      "quantity": "0.5 pièce",
+      "quantity_parsed": 1,
+      "source": "favorite"
+    }
+  ],
+  "favorites_resolved": [
+    "Courgette"
+  ],
+  "favorites_count": 1
+}

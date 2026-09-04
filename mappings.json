@@ -1,0 +1,66 @@
+{
+  "avocat": {
+    "ingredient_label": "Avocat",
+    "accepted_uid": 100000740,
+    "backup_uid": 100047607,
+    "rejected_uids": [
+      100035256
+    ]
+  },
+  "lardons-fumes": {
+    "ingredient_label": "Lardons fumés",
+    "accepted_uid": 100045473,
+    "backup_uid": 100027851,
+    "rejected_uids": [
+      100006574
+    ]
+  },
+  "creme-epaisse": {
+    "ingredient_label": "Crème fraîche épaisse",
+    "accepted_uid": 100005473,
+    "backup_uid": 100004913,
+    "rejected_uids": [
+      100042787
+    ]
+  },
+  "algue-nori": {
+    "ingredient_label": "Feuilles d'algue nori",
+    "accepted_uid": 100032640,
+    "backup_uid": 100056598,
+    "rejected_uids": []
+  },
+  "saumon": {
+    "ingredient_label": "Saumon frais",
+    "accepted_uid": 100062002,
+    "backup_uid": 100036144,
+    "rejected_uids": []
+  },
+  "concombre": {
+    "ingredient_label": "Concombre",
+    "accepted_uid": 100012866,
+    "backup_uid": 100024434,
+    "rejected_uids": []
+  },
+  "courgette": {
+    "ingredient_label": "Courgette",
+    "accepted_uid": null,
+    "backup_uid": 100066869,
+    "rejected_uids": [
+      100056203
+    ]
+  },
+  "graines-sesame": {
+    "ingredient_label": "Graines de sésame",
+    "accepted_uid": 100032622,
+    "backup_uid": 100005318,
+    "rejected_uids": []
+  },
+  "riz-sushi": {
+    "ingredient_label": "Riz à sushi",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100212133
+    ]
+  }
+}

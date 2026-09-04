@@ -1,0 +1,19 @@
+---
+description: Validation conversationnelle des courses Comida (option C)
+globs: data/validation_session.json,mappings.json,examples/*.txt,validate.py
+alwaysApply: false
+---
+
+# Comida — courses (favoris + promos auto)
+
+Quand l'utilisateur prépare des courses Migros ou mentionne `validation_session.json` :
+
+1. Workflow **promo-first puis favoris** : les promos de la semaine sont prises automatiquement ; hors promo, résolution via les favoris Migros (`/shopping/public/v3/favorites/products`).
+2. Si aucun favori ni promo → `needs_favorite` : demander d'ajouter sur migros.ch/fr/my-products puis `validate.py refresh`.
+3. Pas de validation manuelle produit par produit.
+4. Commandes :
+   - `uv run python validate.py summary` — état du panier
+   - `uv run python validate.py favorites` — lister les favoris Migros
+   - `uv run python validate.py refresh` — recharger favoris après ajout
+   - `uv run python validate.py push` — panier Migros (`.env` requis)
+5. Workflow unifié : `uv run python main.py week <export>`

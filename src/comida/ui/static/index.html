@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comida — Courses Migros</title>
+  <style>
+    :root {
+      --bg: #f6f4f0;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6560;
+      --accent: #e85d04;
+      --accent-hover: #d45103;
+      --green: #2d6a4f;
+      --green-bg: #d8f3dc;
+      --promo: #9d0208;
+      --promo-bg: #ffe5e5;
+      --border: #e8e4de;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1rem 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: var(--shadow);
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; }
+    header .meta { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
+    .progress-bar {
+      margin-top: .75rem;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      background: var(--green);
+      transition: width .3s ease;
+    }
+    .stats {
+      display: flex;
+      gap: 1rem;
+      margin-top: .5rem;
+      font-size: .8rem;
+      color: var(--muted);
+    }
+    main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
+    section { margin-bottom: 2rem; }
+    section h2 {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: var(--muted);
+      margin-bottom: .75rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin-bottom: .75rem;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { font-size: 1rem; font-weight: 600; }
+    .card .qty { color: var(--muted); font-size: .875rem; }
+    .options { margin-top: .75rem; display: flex; flex-direction: column; gap: .5rem; }
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      padding: .625rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .option:hover { border-color: var(--accent); background: #fffaf5; }
+    .option input { margin-top: .2rem; accent-color: var(--accent); }
+    .option .name { font-weight: 500; font-size: .9rem; }
+    .option .details { font-size: .8rem; color: var(--muted); margin-top: .125rem; }
+    .badge {
+      display: inline-block;
+      font-size: .65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .03em;
+      padding: .125rem .4rem;
+      border-radius: 4px;
+      margin-left: .375rem;
+      vertical-align: middle;
+    }
+    .badge-promo { background: var(--promo-bg); color: var(--promo); }
+    .badge-habit { background: var(--green-bg); color: var(--green); }
+    .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
+    button {
+      font: inherit;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: .5rem 1rem;
+      font-size: .875rem;
+      font-weight: 500;
+      transition: background .15s, opacity .15s;
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-secondary { background: var(--border); color: var(--text); }
+    .btn-secondary:hover:not(:disabled) { background: #ddd9d3; }
+    .btn-danger { background: transparent; color: var(--promo); border: 1px solid var(--promo-bg); }
+    .search-row { display: flex; gap: .5rem; margin-top: .5rem; }
+    .search-row input {
+      flex: 1;
+      padding: .5rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+    }
+    .resolved-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: .5rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: .9rem;
+    }
+    .resolved-item:last-child { border-bottom: none; }
+    .resolved-item .product { color: var(--muted); font-size: .8rem; }
+    .pantry-list { font-size: .85rem; color: var(--muted); }
+    .pantry-list li { margin-left: 1.25rem; }
+    .toast {
+      position: fixed;
+      bottom: 5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text);
+      color: #fff;
+      padding: .75rem 1.25rem;
+      border-radius: 8px;
+      font-size: .875rem;
+      opacity: 0;
+      transition: opacity .3s;
+      pointer-events: none;
+      z-index: 100;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; }
+    footer {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      padding: .75rem 1.5rem;
+      display: flex;
+      justify-content: center;
+      gap: .75rem;
+      box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    }
+    footer button { min-width: 140px; }
+    .empty { text-align: center; color: var(--muted); padding: 2rem; }
+    .push-result {
+      background: var(--green-bg);
+      border: 1px solid #b7e4c7;
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-top: 1rem;
+      font-size: .875rem;
+    }
+    .push-result a { color: var(--green); font-weight: 600; }
+    .auto-banner {
+      background: var(--green-bg);
+      border-radius: var(--radius);
+      padding: .75rem 1rem;
+      font-size: .85rem;
+      color: var(--green);
+      margin-bottom: 1.5rem;
+    }
+    .warn-banner {
+      background: #fff3cd;
+      border: 1px solid #ffecb5;
+      border-radius: var(--radius);
+      padding: .75rem 1rem;
+      font-size: .85rem;
+      color: #856404;
+      margin-bottom: 1.5rem;
+    }
+    .warn-banner a { color: #856404; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Comida</h1>
+    <div class="meta" id="recipe">Chargement…</div>
+    <div class="progress-bar"><div class="fill" id="progress" style="width:0%"></div></div>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <main id="app">
+    <div class="empty">Chargement de la session…</div>
+  </main>
+
+  <footer>
+    <button class="btn-secondary" onclick="refresh()">Actualiser</button>
+    <button class="btn-secondary" onclick="refreshFavorites()">Recharger favoris</button>
+    <button class="btn-primary" id="pushBtn" onclick="pushBasket(false)">Pousser vers Migros</button>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let session = null;
+
+    function toast(msg, duration = 3000) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), duration);
+    }
+
+    async function api(path, body) {
+      const opts = body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        : {};
+      const res = await fetch(path, opts);
+      const data = await res.json();
+      if (!res.ok || data.ok === false) throw new Error(data.error || 'Erreur');
+      return data;
+    }
+
+    function esc(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    function renderBadges(opt) {
+      let html = '';
+      if (opt.on_promotion) html += '<span class="badge badge-promo">Promo</span>';
+      if ((opt.labels || []).includes('favori')) html += '<span class="badge badge-habit">Favori</span>';
+      if ((opt.labels || []).includes('habituel')) html += '<span class="badge badge-habit">Habituel</span>';
+      return html;
+    }
+
+    function renderNeedsFavorite(item) {
+      const url = session.my_products_url || 'https://www.migros.ch/fr/my-products';
+      return `
+        <div class="card">
+          <h3>${esc(item.ingredient_name)}</h3>
+          <div class="qty">${esc(item.quantity || '')}</div>
+          <p style="font-size:.875rem;margin-top:.5rem">
+            Aucun favori correspondant. Ajoutez un produit sur
+            <a href="${url}" target="_blank">Mes produits Migros</a>,
+            puis cliquez <strong>Recharger favoris</strong>.
+          </p>
+        </div>
+      `;
+    }
+
+    function renderPending(item) {
+      const options = (item.options || []).map(opt => `
+        <label class="option">
+          <input type="radio" name="opt-${esc(item.key)}" value="${opt.rank}"
+            ${opt.rank === item.current_rank ? 'checked' : ''}>
+          <div>
+            <div class="name">${esc(opt.name)} ${renderBadges(opt)}</div>
+            <div class="details">
+              ${opt.package ? esc(opt.package) + ' · ' : ''}
+              ${opt.price_chf != null ? opt.price_chf + ' CHF' : 'prix ?'}
+            </div>
+          </div>
+        </label>
+      `).join('');
+
+      return `
+        <div class="card" data-key="${esc(item.key)}">
+          <h3>${esc(item.ingredient_name)}</h3>
+          <div class="qty">${esc(item.quantity || '')}</div>
+          <div class="options">${options}</div>
+          <div class="actions">
+            <button class="btn-primary" onclick="accept('${esc(item.key)}')">Valider promo</button>
+            <button class="btn-danger" onclick="reject('${esc(item.key)}')">Garder favori</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderManual(item) {
+      return `
+        <div class="card" data-key="${esc(item.key)}">
+          <h3>${esc(item.ingredient_name)}</h3>
+          <div class="qty">Recherche manuelle requise</div>
+          <div class="search-row">
+            <input type="text" placeholder="Recherche Migros…" id="search-${esc(item.key)}"
+              onkeydown="if(event.key==='Enter')search('${esc(item.key)}')">
+            <button class="btn-primary" onclick="search('${esc(item.key)}')">Chercher</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderResolved(item) {
+      const promo = item.on_promotion ? ' <span class="badge badge-promo">Promo</span>' : '';
+      return `
+        <div class="resolved-item">
+          <div>
+            <strong>${esc(item.ingredient_name)}</strong>${promo}
+            <div class="product">${esc(item.name)}</div>
+          </div>
+          <button class="btn-secondary" style="font-size:.75rem;padding:.25rem .5rem"
+            onclick="reopen('${esc(item.key)}')">Modifier</button>
+        </div>
+      `;
+    }
+
+    function render() {
+      if (!session) return;
+      const s = session.stats;
+      document.getElementById('recipe').textContent = session.recipe || 'Session Comida';
+      document.getElementById('progress').style.width =
+        s.total ? `${Math.round((s.resolved / s.total) * 100)}%` : '0%';
+      document.getElementById('stats').innerHTML =
+        `<span>${s.resolved} résolu(s)</span>` +
+        `<span>${(session.promos_resolved || []).length} promo(s)</span>` +
+        `<span>${s.needs_favorite || 0} favori(s) manquant(s)</span>`;
+
+      const pushBtn = document.getElementById('pushBtn');
+      pushBtn.disabled = s.resolved === 0;
+      pushBtn.textContent = (s.pending || s.needs_favorite)
+        ? 'Pousser (forcer)'
+        : 'Pousser vers Migros';
+
+      let html = '';
+
+      if (session.promos_resolved && session.promos_resolved.length) {
+        html += `<div class="auto-banner">✓ Via promos : ${session.promos_resolved.map(esc).join(', ')}</div>`;
+      }
+
+      if (session.favorites_resolved && session.favorites_resolved.length) {
+        html += `<div class="auto-banner">✓ Via favoris : ${session.favorites_resolved.map(esc).join(', ')}</div>`;
+      }
+
+      if (session.needs_favorite && session.needs_favorite.length) {
+        html += '<section><h2>Favoris manquants</h2>';
+        html += `<div class="warn-banner">${session.needs_favorite.length} ingrédient(s) sans favori Migros. `;
+        html += `<a href="${session.my_products_url || 'https://www.migros.ch/fr/my-products'}" target="_blank">Ouvrir Mes produits</a></div>`;
+        html += session.needs_favorite.map(renderNeedsFavorite).join('');
+        html += '</section>';
+      }
+
+      if (session.pending && session.pending.length) {
+        html += '<section><h2>Corrections en attente</h2>';
+        html += session.pending.map(renderPending).join('');
+        html += '</section>';
+      }
+
+      if (session.manual && session.manual.length) {
+        html += '<section><h2>Recherche manuelle</h2>';
+        html += session.manual.map(renderManual).join('');
+        html += '</section>';
+      }
+
+      if (session.resolved && session.resolved.length) {
+        html += '<section><h2>Panier</h2><div class="card">';
+        html += session.resolved.map(renderResolved).join('');
+        html += '</div></section>';
+      }
+
+      if (session.pantry_skipped && session.pantry_skipped.length) {
+        html += '<section><h2>Garde-manger (ignorés)</h2><ul class="pantry-list card">';
+        html += session.pantry_skipped.map(([raw, rule]) =>
+          `<li>${esc(raw)} → ${esc(rule)}</li>`
+        ).join('');
+        html += '</ul></section>';
+      }
+
+      if (!html || (!session.pending.length && !session.manual.length && !session.resolved.length && !session.needs_favorite?.length)) {
+        html = '<div class="empty">Aucune session active. Lancez <code>uv run python main.py week</code>.</div>';
+      }
+
+      document.getElementById('app').innerHTML = html;
+    }
+
+    async function refreshFavorites() {
+      try {
+        const data = await api('/api/refresh', {});
+        toast(data.needs_favorite ? `${data.needs_favorite} favori(s) encore manquant(s)` : 'Favoris rechargés');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function refresh() {
+      try {
+        session = await fetch('/api/session').then(r => r.json());
+        render();
+      } catch (e) {
+        toast('Erreur : ' + e.message);
+      }
+    }
+
+    function selectedRank(key) {
+      const radio = document.querySelector(`input[name="opt-${key}"]:checked`);
+      return radio ? parseInt(radio.value, 10) : 1;
+    }
+
+    async function accept(key) {
+      try {
+        const rank = selectedRank(key);
+        await api('/api/accept', { key, rank });
+        toast('Choix enregistré');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function reject(key) {
+      try {
+        const data = await api('/api/reject', { key });
+        toast(data.message || 'Refusé');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function search(key) {
+      const input = document.getElementById('search-' + key);
+      const query = input ? input.value.trim() : '';
+      if (!query) { toast('Entrez un terme de recherche'); return; }
+      try {
+        const data = await api('/api/search', { key, query });
+        toast(data.message || 'Résultats ajoutés');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function reopen(key) {
+      try {
+        await api('/api/reopen', { key });
+        toast('Ingrédient rouvert');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function pushBasket(force) {
+      if (!session) return;
+      const needsForce = session.stats.pending || session.stats.manual || session.stats.needs_favorite;
+      if (needsForce && !force) {
+        const msg = `${session.stats.needs_favorite || 0} favori(s) manquant(s). Pousser quand même ?`;
+        if (!confirm(msg)) return;
+        force = true;
+      }
+      try {
+        const data = await api('/api/push', { force });
+        const r = data.result;
+        let msg = `${r.results?.length || 0} produit(s) ajouté(s)`;
+        if (r.checkout?.checkoutUrl) {
+          msg += ` — <a href="${r.checkout.checkoutUrl}" target="_blank">Ouvrir le panier</a>`;
+          document.getElementById('app').insertAdjacentHTML('beforeend',
+            `<div class="push-result">${msg}</div>`);
+        }
+        toast('Panier Mis à jour !');
+      } catch (e) { toast(e.message); }
+    }
+
+    refresh();
+    setInterval(refresh, 15000);
+  </script>
+</body>
+</html>

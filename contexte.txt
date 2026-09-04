@@ -1,0 +1,1 @@
+Ce projet vise à automatiser les courses en ligne Migros en fonction des offres du moments et des produits qui rapportent des points cumulus. L’application https://kookd.app sera connectée de façon à gérer la création de recettes et la liste de courses complète en fonction des éléments choisis au préalable depuis le catalogue en ligne Migros.
