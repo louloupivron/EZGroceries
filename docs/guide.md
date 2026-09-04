@@ -23,7 +23,7 @@ uv run python main.py promos --list S1 --telegram
 3. Copier-coller le fichier généré dans **Kookd** pour proposer des recettes.
 4. Choisir les recettes de la semaine dans Kookd.
 
-**Filtres appliqués :** fruits, pain (sauf pâtes à pizza/tarte), sauces type ketchup, yaourts/desserts, plats préparés (sauf momos). Noms traduits en français. Règles manuelles dans `promo-filter.txt`.
+**Filtres :** par défaut désactivés pour une liste curatée (`MIGROS_PROMOS_NO_FILTER=true`). Sinon : fruits, pain, yaourts, etc. — voir `promo-filter.txt`. Chaque `promos` affiche le détail API (inclus/exclus).
 
 ### Phase B — Compléter les courses (Comida)
 
@@ -354,6 +354,17 @@ uv run python validate.py lists
 ```
 
 Corriger `MIGROS_SHOPPING_LIST_NAME` ou utiliser `MIGROS_SHOPPING_LIST_ID`.
+
+### La liste API ne correspond pas à migros.ch
+
+`validate.py lists` affiche le **compte réellement connecté**. Si l’email affiché ≠ `MIGROS_EMAIL`, une ancienne session est en cache :
+
+```bash
+uv run python validate.py logout
+uv run python validate.py lists
+```
+
+Puis mettre à jour `MIGROS_SHOPPING_LIST_ID` avec l’id affiché pour votre liste S1.
 
 ### Erreur sur un lien `/list/xxxxx`
 

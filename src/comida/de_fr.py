@@ -5,7 +5,16 @@ import unicodedata
 
 # Whole-word / phrase replacements (longest first at runtime)
 PHRASES: list[tuple[str, str]] = [
-    ("schweinsgeschnetzeltes", "échine de porc en dés"),
+    ("schweinsgeschnetzeltes", "émincé de porc"),
+    ("gelbflossenthunfischfilets", "filets de thon albacore"),
+    ("gelbflossenthunfisch", "thon albacore"),
+    ("thunfischfilets", "filets de thon"),
+    ("thunfisch", "thon"),
+    ("blumenkohl-roschen", "rosettes de chou-fleur"),
+    ("blumenkohl roschen", "rosettes de chou-fleur"),
+    ("blumenkohl", "chou-fleur"),
+    ("brokkoli", "brocolis"),
+    ("broccoli", "brocolis"),
     ("rind burger classic", "bœuf haché"),
     ("rind burger", "bœuf haché"),
     ("rindshuft", "rumsteck de boeuf"),
@@ -67,7 +76,6 @@ PHRASES: list[tuple[str, str]] = [
     ("baguette", "baguette"),
     ("toast", "pain de mie"),
     ("burger", "burger"),
-    ("fisch", "poisson"),
     ("garnelen", "crevettes"),
     ("tofu", "tofu"),
 ]
@@ -76,6 +84,9 @@ WORDS: dict[str, str] = {
     "migros": "",
     "anna's": "",
     "annas": "",
+    "farmer's": "",
+    "farmers": "",
+    "farmer": "",
     "best": "",
     "fidelio": "",
     "longobardi": "",

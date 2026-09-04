@@ -3,6 +3,7 @@
 import sys
 from pathlib import Path
 
+from comida.basket import default_list_name
 from comida.pipeline import run_promo_first
 from comida.quantities import DEFAULT_PORTIONS
 from comida.validation import build_validation_session, format_for_agent, save_session
@@ -21,7 +22,8 @@ def _parse_common_flags(args: list[str]) -> tuple[list[str], dict]:
         "refresh_promos": False,
         "apply_pantry": False,
         "telegram": False,
-        "list_name": "S1",
+        "no_filter": False,
+        "list_name": default_list_name(),
         "output": None,
     }
     i = 0
@@ -35,6 +37,8 @@ def _parse_common_flags(args: list[str]) -> tuple[list[str], dict]:
             options["apply_pantry"] = True
         elif arg == "--telegram":
             options["telegram"] = True
+        elif arg in ("--no-filter", "--no-filters"):
+            options["no_filter"] = True
         elif arg == "--port" and i + 1 < len(args):
             options["port"] = int(args[i + 1])
             i += 1
@@ -116,6 +120,7 @@ def cmd_promos(args: list[str]) -> None:
             list_name,
             output=options["output"],
             apply_pantry=options["apply_pantry"],
+            apply_filters=False if options["no_filter"] else None,
         )
     except RuntimeError as e:
         print(f"Erreur : {e}")

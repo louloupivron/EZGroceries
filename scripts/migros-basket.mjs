@@ -6,8 +6,11 @@
  * Shared URL slug (e.g. 4SOsOT53) is not the same as shoppingListId.
  */
 import { addToBasket, getBasket, getCheckoutLink } from "migros-mcp/dist/auth-tools/cart.js";
+import { getProfile } from "migros-mcp/dist/auth-tools/account.js";
 import { api } from "migros-mcp/dist/auth/api.js";
 import { credsFromEnv } from "migros-mcp/dist/auth-tools/_shared.js";
+import { sessionFile } from "migros-mcp/dist/auth/paths.js";
+import { unlinkSync } from "fs";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
@@ -130,7 +133,24 @@ async function push({ items }) {
   return { shoppingListId: listId, results, checkout, basket: basketData };
 }
 
-const commands = { lists, basket, add, push };
+async function profile() {
+  requireCreds();
+  return JSON.parse(await getProfile());
+}
+
+function logout() {
+  try {
+    unlinkSync(sessionFile());
+    return { ok: true, message: "Session Migros supprimée. Prochain appel = reconnexion via .env." };
+  } catch (err) {
+    if (err.code === "ENOENT") {
+      return { ok: true, message: "Aucune session en cache." };
+    }
+    throw err;
+  }
+}
+
+const commands = { lists, basket, add, push, profile, logout };
 
 const [cmd, ...rest] = process.argv.slice(2);
 if (!cmd || !commands[cmd]) {

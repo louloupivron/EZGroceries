@@ -23,6 +23,42 @@ def _load_dotenv() -> None:
             os.environ[key] = val
 
 
+def default_list_name() -> str:
+    _load_dotenv()
+    return os.environ.get("MIGROS_SHOPPING_LIST_NAME", "S1").strip() or "S1"
+
+
+def configured_list_id() -> int | None:
+    _load_dotenv()
+    raw = os.environ.get("MIGROS_SHOPPING_LIST_ID", "").strip()
+    return int(raw) if raw else None
+
+
+def configured_list_slug() -> str | None:
+    _load_dotenv()
+    slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
+    return slug or None
+
+
+def shared_list_url() -> str | None:
+    slug = configured_list_slug()
+    return f"https://www.migros.ch/list/{slug}" if slug else None
+
+
+def resolve_list_target(list_name: str | None = None) -> tuple[str | None, int | None]:
+    """
+    Resolve Migros list for API calls.
+    When list_name matches MIGROS_SHOPPING_LIST_NAME, prefer MIGROS_SHOPPING_LIST_ID.
+    """
+    _load_dotenv()
+    name = (list_name or default_list_name()).strip()
+    env_name = os.environ.get("MIGROS_SHOPPING_LIST_NAME", "").strip()
+    env_id = configured_list_id()
+    if env_id and env_name and name.lower() == env_name.lower():
+        return None, env_id
+    return name, None
+
+
 def _run_basket(cmd: str, **kwargs: str) -> dict:
     _load_dotenv()
     env = os.environ.copy()
@@ -44,6 +80,16 @@ def list_shopping_lists() -> list:
     return _run_basket("lists")
 
 
+def migros_profile() -> dict:
+    """Logged-in Migros customer (cached session or fresh .env login)."""
+    return _run_basket("profile")
+
+
+def clear_migros_session() -> dict:
+    """Remove migros-mcp session cache so the next call re-logs in via MIGROS_EMAIL."""
+    return _run_basket("logout")
+
+
 def get_basket() -> dict:
     return _run_basket("basket")
 
@@ -60,8 +106,13 @@ def get_basket_for_list(
         env["MIGROS_SHOPPING_LIST_ID"] = str(list_id)
         env.pop("MIGROS_SHOPPING_LIST_NAME", None)
     elif list_name:
-        env["MIGROS_SHOPPING_LIST_NAME"] = list_name
-        env.pop("MIGROS_SHOPPING_LIST_ID", None)
+        resolved_name, resolved_id = resolve_list_target(list_name)
+        if resolved_id is not None:
+            env["MIGROS_SHOPPING_LIST_ID"] = str(resolved_id)
+            env.pop("MIGROS_SHOPPING_LIST_NAME", None)
+        else:
+            env["MIGROS_SHOPPING_LIST_NAME"] = resolved_name or list_name
+            env.pop("MIGROS_SHOPPING_LIST_ID", None)
     args = ["node", str(BASKET_SCRIPT), "basket"]
     proc = subprocess.run(args, capture_output=True, text=True, cwd=ROOT, check=False, env=env)
     if proc.returncode != 0:
@@ -95,4 +146,3 @@ def resolved_to_basket_items(resolved: list[dict], default_quantity: int = 1) ->
             }
         )
     return out
-

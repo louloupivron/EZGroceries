@@ -4,7 +4,16 @@ import os
 import sys
 from pathlib import Path
 
-from comida.basket import _load_dotenv, list_shopping_lists, push_items, resolved_to_basket_items
+from comida.basket import (
+    _load_dotenv,
+    clear_migros_session,
+    default_list_name,
+    list_shopping_lists,
+    migros_profile,
+    push_items,
+    resolved_to_basket_items,
+    shared_list_url,
+)
 from comida.migros_client import search_products
 from comida.promo_cache import fetch_promotions_cached
 from comida.telegram import run_telegram_setup, run_telegram_test, send_promos_export, send_text
@@ -121,7 +130,7 @@ def cmd_push(args: list[str]) -> None:
         print()
         print(f"Panier : {checkout.get('itemCount')} article(s), ~{checkout.get('onlineTotal')} CHF")
         print(f"Checkout : {checkout.get('checkoutUrl')}")
-        slug = os.environ.get("MIGROS_LIST_SLUG", "4SOsOT53")
+        slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
         if slug:
             print(f"Liste partagée : https://www.migros.ch/list/{slug}")
         print(checkout.get("message", ""))
@@ -139,9 +148,9 @@ def _maybe_send_push_telegram(checkout: dict, result: dict) -> None:
         lines.append(f"Total : ~{checkout.get('onlineTotal', '?')} CHF")
         if checkout.get("checkoutUrl"):
             lines.append(f"Checkout : {checkout['checkoutUrl']}")
-    slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
+    slug = shared_list_url()
     if slug:
-        lines.append(f"Liste : https://www.migros.ch/list/{slug}")
+        lines.append(f"Liste : {slug}")
     try:
         from comida.telegram import TelegramConfig, send_message
 
@@ -151,8 +160,27 @@ def _maybe_send_push_telegram(checkout: dict, result: dict) -> None:
         print(f"⚠ Telegram : {e}")
 
 
+def _print_migros_account() -> None:
+    try:
+        profile = migros_profile()
+    except RuntimeError as e:
+        print(f"Compte Migros : erreur ({e})")
+        return
+    name = f"{profile.get('firstName', '')} {profile.get('lastName', '')}".strip()
+    email = profile.get("email", "?")
+    print(f"Compte Migros connecté : {name} <{email}>")
+    env_email = os.environ.get("MIGROS_EMAIL", "").strip().lower()
+    if env_email and email.lower() != env_email:
+        print(
+            f"⚠  MIGROS_EMAIL={env_email} mais la session en cache est {email}. "
+            "Lancez : uv run python validate.py logout"
+        )
+
+
 def cmd_lists() -> None:
     _load_dotenv()
+    _print_migros_account()
+    print()
     try:
         lists = list_shopping_lists()
     except RuntimeError as e:
@@ -175,9 +203,23 @@ def cmd_lists() -> None:
         )
     print()
     print("Ajoutez dans .env :")
-    print("  MIGROS_SHOPPING_LIST_NAME=Les Avengers")
+    print(f"  MIGROS_SHOPPING_LIST_NAME={default_list_name()}")
     print("  ou MIGROS_SHOPPING_LIST_ID=<id>")
-    print("Lien partagé /list/4SOsOT53 utilise un slug public, pas cet id numérique.")
+    slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
+    if slug:
+        print(f"Lien partagé : https://www.migros.ch/list/{slug} (slug ≠ shoppingListId)")
+    else:
+        print("Lien partagé /list/<slug> : définir MIGROS_LIST_SLUG dans .env")
+
+
+def cmd_logout() -> None:
+    _load_dotenv()
+    try:
+        result = clear_migros_session()
+    except RuntimeError as e:
+        print(f"Erreur : {e}")
+        sys.exit(1)
+    print(result.get("message", "Session Migros supprimée."))
 
 
 def cmd_reopen(args: list[str]) -> None:
@@ -264,7 +306,7 @@ def cmd_refresh() -> None:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|send|lists|favorites|refresh|telegram-setup|telegram-test")
+        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|send|lists|logout|favorites|refresh|telegram-setup|telegram-test")
         sys.exit(1)
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -286,6 +328,8 @@ def main() -> None:
         cmd_push(args)
     elif cmd == "lists":
         cmd_lists()
+    elif cmd == "logout":
+        cmd_logout()
     elif cmd == "favorites":
         cmd_favorites()
     elif cmd == "refresh":
