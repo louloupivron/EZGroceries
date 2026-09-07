@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from comida.quantities import DEFAULT_PORTIONS
 
 LINE_RE = re.compile(
-    r"^-\s*"
+    r"^[-•]\s*"
     r"(?P<quantity>(?:\d+(?:[.,]\d+)?))\s+"
     r"(?P<unit>[a-zàâäéèêëïîôùûüç.]+)\s+"
     r"(?P<name>.+)$",
@@ -22,10 +22,20 @@ class Ingredient:
     raw: str
 
 
+def _normalize_kookd_line(line: str) -> str:
+    """Accept Kookd bullets (•) and ignore category headers."""
+    line = line.strip()
+    if not line or line.endswith(":"):
+        return ""
+    if line.startswith("•"):
+        return "- " + line[1:].strip()
+    return line
+
+
 def parse_kookd_export(text: str) -> list[Ingredient]:
     ingredients: list[Ingredient] = []
-    for line in text.splitlines():
-        line = line.strip()
+    for raw in text.splitlines():
+        line = _normalize_kookd_line(raw)
         if not line or not line.startswith("-"):
             continue
         match = LINE_RE.match(line)

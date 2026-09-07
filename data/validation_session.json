@@ -1,89 +1,304 @@
 {
-  "created_at": "2026-09-02T21:27:19.672499+00:00",
-  "recipe": "/Users/latruitegauloise/Desktop/perso/Migros/examples/sushi_bowl.txt",
-  "agent_instructions": "Tu aides à valider les choix alimentaires Comida (workflow favoris Migros).\n\nFichier de session : data/validation_session.json\n\nRègles :\n- Les produits hors promo sont résolus via les favoris Migros (Mes produits).\n- Si aucun favori ne correspond : l'utilisateur doit l'ajouter sur migros.ch/fr/my-products\n  puis relancer `uv run python main.py week` ou `validate.py refresh`.\n- Seules les offres / promos de la semaine nécessitent une validation manuelle.\n\nPour chaque ingrédient en `pending` (promo) :\n  uv run python validate.py accept <clé> <n°>   # choisir la promo\n  uv run python validate.py reject <clé>         # garder le favori habituel\n\nQuand tout est résolu : uv run python validate.py summary\nPuis : uv run python validate.py push",
-  "promotions_total": 1224,
+  "created_at": "2026-09-06T08:20:24.426025+00:00",
+  "recipe": "/Users/latruitegauloise/Desktop/perso/Migros/exports/semaine.txt",
+  "portions": 8,
+  "agent_instructions": "Tu aides à préparer les courses Comida (workflow favoris + promos Migros).\n\nFichier de session : data/validation_session.json\n\nRègles :\n- Les promos de la semaine sont prises automatiquement (favori s'il est en offre, sinon meilleure promo).\n- Hors promo, les produits sont résolus via les favoris Migros (Mes produits).\n- Si aucun favori ni promo : l'utilisateur doit ajouter le produit sur migros.ch/fr/my-products\n  puis relancer `uv run python main.py week` ou `validate.py refresh`.\n- Pas de validation manuelle produit par produit.\n\nQuand tout est résolu : uv run python validate.py summary\nPuis : uv run python validate.py push",
+  "promotions_total": 898,
+  "promotions_from_cache": true,
   "pantry_skipped": [
     [
-      "- 3 pincée Sel et poivre",
+      "- 2 c.à.s Jus de citron",
+      "jus de citron"
+    ],
+    [
+      "- 500 g Riz blanc",
+      "riz (2 kg en stock)"
+    ],
+    [
+      "- 300 g Polenta",
+      "polenta"
+    ],
+    [
+      "- 1200 ml Eau",
+      "eau"
+    ],
+    [
+      "- 16 c.à.s Huile d'olive",
+      "huile en tout genre"
+    ],
+    [
+      "- 1 mélange Sel et poivre",
       "sel et épices"
     ],
     [
-      "- 40 ml Vinaigre de riz",
-      "vinaigre"
+      "- 6 c.à.s Sauce soja",
+      "sauce soja"
     ],
     [
-      "- 10 ml Huile d'olive",
-      "huile en tout genre"
+      "- 4 c.à.c Origan séché",
+      "origan séché"
     ]
+  ],
+  "weekly_staples": [
+    "pain toast",
+    "bananes",
+    "lait de riz"
   ],
   "pending": [],
   "unmatched": [],
-  "needs_favorite": [
-    {
-      "key": "lardons-fumes",
-      "ingredient_name": "Lardons fumés",
-      "quantity": "200.0 g",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "creme-epaisse",
-      "ingredient_name": "Crème fraîche épaisse",
-      "quantity": "200.0 ml",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "algue-nori",
-      "ingredient_name": "Feuilles d'algue nori",
-      "quantity": "4.0 feuilles",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "saumon",
-      "ingredient_name": "Saumon frais",
-      "quantity": "200.0 g",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "avocat",
-      "ingredient_name": "Avocat",
-      "quantity": "1.0 pièce",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "concombre",
-      "ingredient_name": "Concombre",
-      "quantity": "0.5 pièce",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    },
-    {
-      "key": "graines-sesame",
-      "ingredient_name": "Graines de sésame",
-      "quantity": "2.0 c.à.s",
-      "status": "needs_favorite",
-      "hint": "Ajoutez un produit sur https://www.migros.ch/fr/my-products puis relancez week ou validate.py refresh"
-    }
-  ],
+  "needs_favorite": [],
   "resolved": [
     {
-      "key": "courgette",
-      "ingredient_name": "Courgette",
-      "uid": 100045653,
-      "name": "Zucchetti",
+      "key": "pommes-terre",
+      "ingredient_name": "Pommes de terre",
+      "uid": 100168249,
+      "name": "Migros Kartoffeln",
+      "on_promotion": true,
+      "quantity": "600 g",
+      "package": "600 g",
+      "price_chf": 2.1,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "haricots-verts",
+      "ingredient_name": "Haricots verts",
+      "uid": 100038685,
+      "name": "Farmer's Best Bohnen",
+      "on_promotion": true,
+      "quantity": "300 g",
+      "package": "2 × 360 g",
+      "price_chf": 5.9,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "chou-fleur",
+      "ingredient_name": "Chou-fleur",
+      "uid": 100030813,
+      "name": "Farmer's Best Blumenkohl-Röschen",
+      "on_promotion": true,
+      "quantity": "800 g",
+      "package": "2 × 500 g",
+      "price_chf": 4.5,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "carottes",
+      "ingredient_name": "Carottes",
+      "uid": 100023482,
+      "name": "Karotten",
       "on_promotion": false,
-      "quantity": "0.5 pièce",
+      "quantity": "10 pièces",
+      "package": "1 kg",
+      "price_chf": 2.9,
+      "quantity_parsed": 1,
+      "source": "mapping"
+    },
+    {
+      "key": "oignon",
+      "ingredient_name": "Oignon",
+      "uid": 100002672,
+      "name": "Migros Zwiebeln",
+      "on_promotion": false,
+      "quantity": "2 pièces",
+      "package": "1 kg",
+      "price_chf": 1.7,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "champignons-paris",
+      "ingredient_name": "Champignons de Paris",
+      "uid": 100024592,
+      "name": "Champignons",
+      "on_promotion": false,
+      "quantity": "400 g",
+      "package": "250 g",
+      "price_chf": 3.95,
+      "quantity_parsed": 2,
+      "source": "shopping_list"
+    },
+    {
+      "key": "brocoli",
+      "ingredient_name": "Brocoli",
+      "uid": 100030836,
+      "name": "Farmer's Best Broccoli",
+      "on_promotion": true,
+      "quantity": "1000 g",
+      "package": "2 × 750 g",
+      "price_chf": 9.4,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "thon",
+      "ingredient_name": "Thon",
+      "uid": 100036100,
+      "name": "Migros Gelbflossenthunfischfilets",
+      "on_promotion": true,
+      "quantity": "800 g",
+      "package": "170–210 g",
+      "price_chf": 9.4,
+      "quantity_parsed": 5,
+      "source": "shopping_list"
+    },
+    {
+      "key": "echine-porc",
+      "ingredient_name": "Échine de porc",
+      "uid": 100025347,
+      "name": "Schweinsgeschnetzeltes",
+      "on_promotion": true,
+      "quantity": "1200 g",
+      "package": "200–300 g",
+      "price_chf": 4.65,
+      "quantity_parsed": 6,
+      "source": "shopping_list"
+    },
+    {
+      "key": "jambon-blanc",
+      "ingredient_name": "Jambon blanc",
+      "uid": 100025334,
+      "name": "Vorderschinken",
+      "on_promotion": false,
+      "quantity": "8 tranches",
+      "package": "142 g",
+      "price_chf": 2.5,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "mozzarella",
+      "ingredient_name": "Mozzarella",
+      "uid": 100004907,
+      "name": "Alfredo Mozzarella",
+      "on_promotion": true,
+      "quantity": "600 g",
+      "package": "300 g",
+      "price_chf": 2.85,
+      "quantity_parsed": 2,
+      "source": "shopping_list"
+    },
+    {
+      "key": "parmesan",
+      "ingredient_name": "Parmesan",
+      "uid": 100044164,
+      "name": "Da Emilio über 20 Monate DOP",
+      "on_promotion": false,
+      "quantity": "100 g",
+      "package": "176–264 g",
+      "price_chf": 5.3,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "pates-courtes",
+      "ingredient_name": "Pâtes courtes",
+      "uid": 100038137,
+      "name": "Agnesi Penne Rigate",
+      "on_promotion": true,
+      "quantity": "500 g",
+      "package": "2 × 500 g",
+      "price_chf": 5,
+      "quantity_parsed": 1,
+      "source": "promo"
+    },
+    {
+      "key": "sauce-tomate",
+      "ingredient_name": "Sauce tomate",
+      "uid": 100010506,
+      "name": "Longobardi Passata",
+      "on_promotion": false,
+      "quantity": "400 ml",
+      "package": "700 g",
+      "price_chf": 2.5,
+      "quantity_parsed": 1,
+      "source": "mapping"
+    },
+    {
+      "key": "pate-pizza",
+      "ingredient_name": "Pâte à pizza",
+      "uid": 100163105,
+      "name": "Anna's Best Pizzateig",
+      "on_promotion": false,
+      "quantity": "1000 g",
+      "package": "800 g",
+      "price_chf": 3.7,
+      "quantity_parsed": 2,
+      "source": "shopping_list"
+    },
+    {
+      "key": "capres",
+      "ingredient_name": "Câpres",
+      "uid": 100045155,
+      "name": "Condy Kapern",
+      "on_promotion": true,
+      "quantity": "2 c.à.s",
+      "package": "2 × 65 g",
+      "price_chf": 2.6,
+      "quantity_parsed": 1,
+      "source": "shopping_list"
+    },
+    {
+      "key": "pain-toast",
+      "ingredient_name": "pain toast",
+      "uid": 100005243,
+      "name": "M-Classic American Toast",
+      "on_promotion": false,
+      "quantity": "1 pièce",
+      "package": "730 g",
+      "price_chf": 1.75,
+      "quantity_parsed": 1,
+      "source": "favorite"
+    },
+    {
+      "key": "bananes",
+      "ingredient_name": "bananes",
+      "uid": 100184056,
+      "name": "Migros Bananen",
+      "on_promotion": false,
+      "quantity": "1 pièce",
+      "package": "905–1275 g",
+      "price_chf": 1.3,
+      "quantity_parsed": 1,
+      "source": "favorite"
+    },
+    {
+      "key": "lait-riz",
+      "ingredient_name": "lait de riz",
+      "uid": 100041184,
+      "name": "Alnatura Reisdrink",
+      "on_promotion": false,
+      "quantity": "1 pièce",
+      "package": "2 × 1 l",
+      "price_chf": 4.1,
       "quantity_parsed": 1,
       "source": "favorite"
     }
   ],
   "favorites_resolved": [
-    "Courgette"
+    "pain toast",
+    "bananes",
+    "lait de riz"
   ],
-  "favorites_count": 1
+  "promos_resolved": [
+    "Pâtes courtes"
+  ],
+  "list_resolved": [
+    "Pommes de terre",
+    "Haricots verts",
+    "Chou-fleur",
+    "Oignon",
+    "Champignons de Paris",
+    "Brocoli",
+    "Thon",
+    "Échine de porc",
+    "Jambon blanc",
+    "Mozzarella",
+    "Parmesan",
+    "Pâte à pizza",
+    "Câpres"
+  ],
+  "favorites_count": 9
 }

@@ -5,6 +5,7 @@ from __future__ import annotations
 import webbrowser
 from pathlib import Path
 
+from comida.basket import default_list_name
 from comida.pipeline import run_promo_first, run_promo_first_multi
 from comida.ui.server import serve
 from comida.favorites import fetch_favorites_with_details
@@ -56,7 +57,7 @@ def run_week(
     paths = resolve_recipe_paths(recipe_paths or [])
 
     cache_hint = " (cache promos)" if not refresh_promos else " (refresh promos)"
-    print(f"Analyse Migros en cours (promos + favoris){cache_hint}…")
+    print(f"Analyse Migros en cours (liste {default_list_name()} + promos + favoris){cache_hint}…")
     if portions != base_portions:
         print(f"  Portions : {portions} (base Kookd : {base_portions})")
     if len(paths) == 1:
@@ -81,6 +82,9 @@ def run_week(
         print(f"  Promos depuis le cache ({result.get('promotions_indexed')} produits)")
     else:
         print(f"  Promos rafraîchies ({result.get('promotions_indexed')} produits)")
+    weekly = result.get("weekly_staples", [])
+    if weekly:
+        print(f"  + {len(weekly)} course(s) hebdo : {', '.join(weekly)}")
 
     print("Chargement des favoris Migros…")
     favorite_products = fetch_favorites_with_details()

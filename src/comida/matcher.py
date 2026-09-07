@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from rapidfuzz import fuzz
 
 from comida.parser import Ingredient
+from comida.synonyms import search_terms, significant_tokens
 
 MBUDGET_MARKERS = ("m-budget", "mbudget", "m budget")
 
@@ -65,10 +66,26 @@ def _score_name(ingredient_name: str, product: dict, extra_terms: list[str] | No
     return max(scores)
 
 
+def _score_bonus(ingredient_name: str, product: dict) -> float:
+    low = ingredient_name.lower()
+    blob = _display_name(product).lower()
+    package = ((product.get("offer") or {}).get("quantity") or "").lower()
+    bonus = 0.0
+    if "sauce tomate" in low or "passata" in low:
+        if "passata" in blob or "tomatensauce" in blob:
+            bonus += 12
+        elif re.search(r"\btomaten\b", blob) and "passata" not in blob and "sauce" not in blob:
+            bonus -= 15
+    if "carotte" in low:
+        if "1 kg" in package or package == "1 kg":
+            bonus += 8
+        if re.fullmatch(r"karotten?", blob.strip()) or blob.strip() == "karotten":
+            bonus += 5
+    return bonus
+
+
 def _significant_tokens(name: str) -> list[str]:
-    stop = {"de", "du", "la", "le", "les", "d", "et", "en", "feuilles", "frais", "fraîche", "pièce"}
-    tokens = re.findall(r"[a-zàâäéèêëïîôùûüç]+", name.lower())
-    return [t for t in tokens if len(t) > 2 and t not in stop]
+    return significant_tokens(name)
 
 
 def search_query(ingredient_name: str) -> str:
@@ -80,14 +97,18 @@ def search_query(ingredient_name: str) -> str:
 
 def _promo_candidates(ingredient_name: str, products: list[dict]) -> list[dict]:
     tokens = _significant_tokens(ingredient_name)
-    if not tokens:
+    terms = [t.lower() for t in search_terms(ingredient_name)]
+    needles = list(dict.fromkeys(tokens + terms))
+    if not needles:
         return products
     out: list[dict] = []
     for product in products:
         text = _display_name(product).lower()
-        if any(t in text for t in tokens):
+        name = (product.get("name") or "").lower()
+        blob = f"{text} {name}"
+        if any(n in blob for n in needles):
             out.append(product)
-        elif _score_name(ingredient_name, product) >= 80:
+        elif _score_name(ingredient_name, product, extra_terms=terms) >= 80:
             out.append(product)
     return out
 
@@ -96,18 +117,25 @@ def _is_non_food(product: dict) -> bool:
     text = _display_name(product).lower()
     markers = (
         "shampoo", "conditioner", "maske", "dreamies", "edgard",
-        "für katzen", "hundefutter", "tier",
+        "für katzen", "katzen", "hundefutter", "tier",
+        "sterilcat", "katzennahrung", "katzenfutter",
+        "geschirrspül", "geschirrspul", "spülmaschine", "spulmaschine",
+        "tabs für", "finish tabs", "dishwasher",
     )
     return any(m in text for m in markers)
 
 
 def _is_prepared_food(product: dict) -> bool:
     text = _display_name(product).lower()
+    name = (product.get("name") or "").lower()
+    blob = f"{text} {name}"
     markers = (
         "parmentier", "bagel", "snack", "cracker", "plat ", "préparé",
         "chüechli", "chuechli", "gewürzgurken",
+        "püree", "puree", "mus",
+        "pringles", "popcorn",
     )
-    return any(m in text for m in markers)
+    return any(m in blob for m in markers)
 
 
 def rank_products(
@@ -118,6 +146,8 @@ def rank_products(
     ambiguity_gap: float = 8.0,
     extra_terms: list[str] | None = None,
 ) -> ProductMatch | None:
+    from comida.ingredient_guards import product_fits_ingredient
+
     candidates: list[tuple[dict, float]] = []
     wants_fresh = "frais" in ingredient.name.lower() or "fraîche" in ingredient.name.lower()
     for product in products:
@@ -127,9 +157,11 @@ def rank_products(
             continue
         if _is_prepared_food(product):
             continue
+        if not product_fits_ingredient(ingredient.name, product, extra_terms):
+            continue
         if wants_fresh and "rauch" in _display_name(product).lower():
             continue
-        score = _score_name(ingredient.name, product, extra_terms)
+        score = _score_name(ingredient.name, product, extra_terms) + _score_bonus(ingredient.name, product)
         if score < 55:
             continue
         pid = _product_id(product)

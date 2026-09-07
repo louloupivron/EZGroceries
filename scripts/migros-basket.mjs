@@ -5,7 +5,7 @@
  * Optional: MIGROS_SHOPPING_LIST_ID or MIGROS_SHOPPING_LIST_NAME (see `lists` command).
  * Shared URL slug (e.g. 4SOsOT53) is not the same as shoppingListId.
  */
-import { addToBasket, getBasket, getCheckoutLink } from "migros-mcp/dist/auth-tools/cart.js";
+import { addToBasket, getBasket } from "migros-mcp/dist/auth-tools/cart.js";
 import { getProfile } from "migros-mcp/dist/auth-tools/account.js";
 import { api } from "migros-mcp/dist/auth/api.js";
 import { credsFromEnv } from "migros-mcp/dist/auth-tools/_shared.js";
@@ -100,6 +100,31 @@ async function add({ id, quantity = "1" }) {
   return { productId, quantity: qty, shoppingListId: listId, basket: JSON.parse(raw) };
 }
 
+function checkoutSummaryFromBasket(basketJson) {
+  const data = typeof basketJson === "string" ? JSON.parse(basketJson) : basketJson;
+  const totals = data.totals ?? {};
+  const minOk = totals.minimumOrderValueReached ?? true;
+  const itemCount = data.itemCount ?? (data.items?.length ?? 0);
+  if (itemCount === 0) {
+    return {
+      ok: false,
+      message: "Liste vide. Ajoutez des produits avant le checkout.",
+    };
+  }
+  return {
+    ok: true,
+    itemCount,
+    onlineTotal: totals.online,
+    instoreTotal: totals.instore,
+    freeDelivery: totals.freeDelivery,
+    minimumOrderValueReached: minOk,
+    checkoutUrl: "https://www.migros.ch/en?context=ecommerce",
+    message: minOk
+      ? `Ouvrez l’URL de checkout pour confirmer adresse, créneau et paiement.`
+      : `Panier sous le minimum de commande en ligne. Ajoutez des articles puis relancez le push.`,
+  };
+}
+
 async function push({ items }) {
   requireCreds();
   const parsed = JSON.parse(items);
@@ -128,8 +153,8 @@ async function push({ items }) {
       });
     }
   }
-  const checkout = JSON.parse(await getCheckoutLink());
   const basketData = JSON.parse(await getBasket({ shoppingListId: listId }));
+  const checkout = checkoutSummaryFromBasket(basketData);
   return { shoppingListId: listId, results, checkout, basket: basketData };
 }
 

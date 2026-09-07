@@ -49,6 +49,8 @@ UNIT_ALIASES: dict[str, str] = {
     "boites": "piece",
     "paquet": "piece",
     "paquets": "piece",
+    "tranche": "piece",
+    "tranches": "piece",
 }
 
 # Approximate conversions for small units → treat as negligible for pack sizing.
@@ -103,15 +105,46 @@ def parse_recipe_quantity(quantity_str: str | None) -> Amount | None:
     return parse_amount_text(quantity_str.strip())
 
 
+def _normalize_package_text(text: str) -> str:
+    text = text.replace("\u2009", " ").replace("–", "-").replace("—", "-")
+    return re.sub(r"\s+", " ", text.strip().lower())
+
+
+def _amount_in_base(amount: Amount) -> float | None:
+    return amount.to_grams_or_ml()
+
+
 def parse_package_size(package: str | None) -> Amount | None:
-    """Parse Migros offer quantity, e.g. '200g', '1 Stück', '500 ml'."""
+    """Parse Migros offer quantity, e.g. '200 g', '2 × 360 g', '170–210 g'."""
     if not package:
         return None
-    text = str(package).strip()
-    compact = re.sub(r"\s+", "", text.lower())
+    text = _normalize_package_text(str(package))
+
+    multipack = re.match(
+        r"^(?P<count>\d+)\s*[x×]\s*(?P<qty>\d+(?:[.,]\d+)?)\s*(?P<unit>[a-zàâäéèêëïîôùûüç.]+)$",
+        text,
+    )
+    if multipack:
+        count = float(multipack.group("count").replace(",", "."))
+        qty = float(multipack.group("qty").replace(",", "."))
+        unit = normalize_unit(multipack.group("unit"))
+        return Amount(count * qty, unit)
+
+    range_match = re.match(
+        r"^(?P<low>\d+(?:[.,]\d+)?)\s*-\s*(?P<high>\d+(?:[.,]\d+)?)\s*(?P<unit>[a-zàâäéèêëïîôùûüç.]+)$",
+        text,
+    )
+    if range_match:
+        # Use the lower bound so we do not under-order variable-weight packs.
+        low = float(range_match.group("low").replace(",", "."))
+        unit = normalize_unit(range_match.group("unit"))
+        return Amount(low, unit)
+
+    compact = re.sub(r"\s+", "", text)
     match = re.match(r"^(?P<qty>\d+(?:[.,]\d+)?)(?P<unit>[a-zàâäéèêëïîôùûüç.]+)$", compact)
     if match:
         return Amount(float(match.group("qty").replace(",", ".")), normalize_unit(match.group("unit")))
+
     return parse_amount_text(text)
 
 
@@ -151,6 +184,10 @@ def compute_basket_quantity(
 
     if needed.unit == "piece" and pack.unit == "piece":
         return max(1, math.ceil(needed.value / pack.value))
+
+    # Recipe count (pièces, tranches) with a weight/volume pack → one retail unit.
+    if needed.unit == "piece" and pack.unit != "piece":
+        return default
 
     return max(1, math.ceil(needed_base / pack_base))
 

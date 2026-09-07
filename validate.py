@@ -128,7 +128,10 @@ def cmd_push(args: list[str]) -> None:
         print(f"Liste cible (shoppingListId) : {list_id}")
     if checkout.get("ok"):
         print()
-        print(f"Panier : {checkout.get('itemCount')} article(s), ~{checkout.get('onlineTotal')} CHF")
+        print(
+            f"Liste S1 : {checkout.get('itemCount')} ligne(s), "
+            f"~{checkout.get('onlineTotal')} CHF en ligne"
+        )
         print(f"Checkout : {checkout.get('checkoutUrl')}")
         slug = os.environ.get("MIGROS_LIST_SLUG", "").strip()
         if slug:
@@ -139,6 +142,13 @@ def cmd_push(args: list[str]) -> None:
 
     if os.environ.get("TELEGRAM_SEND_ON_PUSH", "").strip().lower() in ("1", "true", "yes"):
         _maybe_send_push_telegram(checkout, result)
+
+    published = _maybe_publish_page()
+    if published:
+        from comida.week_page import publish_hint
+
+        print(f"Page mobile générée : {published}")
+        print(f"  Poussez sur GitHub : {publish_hint()}")
 
 
 def _maybe_send_push_telegram(checkout: dict, result: dict) -> None:
@@ -288,6 +298,38 @@ def cmd_send(args: list[str]) -> None:
         sys.exit(1)
 
 
+def cmd_publish() -> None:
+    from comida.week_page import generate_week_page, publish_hint
+
+    try:
+        load_session()
+    except FileNotFoundError:
+        print("Aucune session. Lancez : uv run python main.py week exports/semaine.txt")
+        sys.exit(1)
+    path = generate_week_page()
+    url = publish_hint()
+    print(f"Page générée : {path}")
+    print(f"URL mobile : {url}")
+    print()
+    print("Pour mettre en ligne :")
+    print("  git add docs/index.html docs/.nojekyll")
+    print("  git commit -m 'publish: semaine'")
+    print("  git push")
+    print()
+    print("GitHub → Settings → Pages → Source : main, dossier /docs")
+
+
+def _maybe_publish_page() -> Path | None:
+    if os.environ.get("COMIDA_PUBLISH_ON_PUSH", "").strip().lower() not in ("1", "true", "yes"):
+        return None
+    try:
+        from comida.week_page import generate_week_page
+
+        return generate_week_page()
+    except FileNotFoundError:
+        return None
+
+
 def cmd_refresh() -> None:
     try:
         session = load_session()
@@ -306,7 +348,7 @@ def cmd_refresh() -> None:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|send|lists|logout|favorites|refresh|telegram-setup|telegram-test")
+        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|publish|send|lists|logout|favorites|refresh|telegram-setup|telegram-test")
         sys.exit(1)
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -326,6 +368,8 @@ def main() -> None:
         cmd_basket()
     elif cmd == "push":
         cmd_push(args)
+    elif cmd == "publish":
+        cmd_publish()
     elif cmd == "lists":
         cmd_lists()
     elif cmd == "logout":

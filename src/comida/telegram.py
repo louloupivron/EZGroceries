@@ -164,17 +164,16 @@ def send_promos_export(
     *,
     config: TelegramConfig | None = None,
 ) -> dict:
-    """Send promo list as Telegram message + attached .txt file."""
+    """Send promo list as a single Telegram text message."""
     cfg = config or TelegramConfig.from_env()
     content = file_path.read_text(encoding="utf-8").strip()
     lines = [ln for ln in content.splitlines() if ln.strip()]
     header = f"📋 Promos {list_name} — {len(lines)} ingrédient(s)"
     preview = header + "\n\n" + content
     if len(preview) <= 4000:
-        send_message(preview, config=cfg)
-    else:
-        send_message(header + "\n\n(voir fichier joint)", config=cfg)
-    return send_document(file_path, caption=header, config=cfg)
+        return send_message(preview, config=cfg)
+    send_message(header, config=cfg)
+    return send_message(content, config=cfg)
 
 
 def send_text(

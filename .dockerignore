@@ -1,0 +1,17 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+data/
+exports/
+docs/index.html
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.cursor/
+agent-transcripts/
+*.md
+!docker/README.md
+.DS_Store

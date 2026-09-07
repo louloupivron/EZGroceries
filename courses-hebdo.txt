@@ -1,0 +1,11 @@
+# Ingrédients ajoutés à chaque semaine (en plus de l'export Kookd).
+# Ajoutez chaque produit sur migros.ch/fr/my-products (favori obligatoire).
+#
+# Formats :
+#   pain toast              → 1 pièce
+#   6 pièces bananes
+#   1 l lait de riz
+
+pain toast
+bananes
+lait de riz

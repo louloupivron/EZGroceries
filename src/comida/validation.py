@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
+from comida.ingredient_guards import product_name_fits_ingredient
 from comida.matcher import _display_name, _price_chf, _product_id
 from comida.budget import estimate_basket, format_budget_summary, format_basket_enriched
 from comida.quantities import compute_basket_quantity
@@ -114,6 +115,8 @@ def _option_from_product(
 
 
 def build_options_from_match(match_dict: dict, mappings: dict) -> list[ProductOption]:
+    from comida.migros_client import fetch_product_details
+
     entry = get_entry(mappings, match_dict.get("ingredient_name", ""))
     rejected = set(entry.get("rejected_uids", []))
     seen: set[int] = set()
@@ -139,11 +142,12 @@ def build_options_from_match(match_dict: dict, mappings: dict) -> list[ProductOp
     accepted_uid = entry.get("accepted_uid")
     primary_uid = match_dict.get("product_uid")
 
-    # Cached preference first (still requires user validation in session)
     if accepted_uid and accepted_uid not in rejected:
+        found = False
         for alt in match_dict.get("alternatives", []):
             if alt.get("uid") == accepted_uid:
-                add_uid(accepted_uid, alt["name"], None, alt.get("price_chf"), False, 0, "cache", True)
+                add_uid(accepted_uid, alt["name"], None, alt.get("price_chf"), False, 200, "mapping", True)
+                found = True
                 break
         if primary_uid == accepted_uid:
             add_uid(
@@ -152,10 +156,26 @@ def build_options_from_match(match_dict: dict, mappings: dict) -> list[ProductOp
                 match_dict.get("package"),
                 match_dict.get("price_chf"),
                 match_dict.get("on_promotion", False),
-                match_dict.get("score", 0),
-                "cache",
+                200,
+                "mapping",
                 True,
             )
+            found = True
+        if not found:
+            products = fetch_product_details([accepted_uid])
+            if products:
+                product = products[0]
+                offer = product.get("offer") or {}
+                add_uid(
+                    accepted_uid,
+                    _display_name(product),
+                    offer.get("quantity"),
+                    _price_chf(product),
+                    match_dict.get("on_promotion", False),
+                    200,
+                    "mapping",
+                    True,
+                )
 
     if primary_uid:
         add_uid(
@@ -222,6 +242,7 @@ def build_validation_session(pipeline_result: dict, mappings_path: Path = MAPPIN
         "promotions_total": pipeline_result.get("promotions_total"),
         "promotions_from_cache": pipeline_result.get("promotions_from_cache"),
         "pantry_skipped": pipeline_result.get("pantry_skipped", []),
+        "weekly_staples": pipeline_result.get("weekly_staples", []),
         "pending": pending,
         "unmatched": unmatched_pending,
         "needs_favorite": [],
@@ -350,6 +371,13 @@ def format_for_agent(session: dict) -> str:
         lines.append("## Garde-manger (ignorés)")
         for raw, rule in session["pantry_skipped"]:
             lines.append(f"- {raw} → {rule}")
+        lines.append("")
+
+    weekly_staples = session.get("weekly_staples", [])
+    if weekly_staples:
+        lines.append("## Courses hebdo (courses-hebdo.txt)")
+        for name in weekly_staples:
+            lines.append(f"- {name}")
         lines.append("")
 
     if session.get("needs_favorite"):
@@ -603,9 +631,12 @@ def apply_favorites_workflow(
 ) -> dict:
     """Auto-resolve promos, then favorites. Only unmatched items need a new favorite."""
     from comida.favorites import match_ingredient_to_favorite
+    from comida.mappings import get_entry, load_mappings
 
     needs_favorite: list[dict] = []
     resolved = list(session.get("resolved", []))
+    mappings = load_mappings()
+    weekly_keys = {name.lower() for name in session.get("weekly_staples", [])}
 
     def process_ingredient(
         key: str,
@@ -614,14 +645,67 @@ def apply_favorites_workflow(
         pipeline_options: list[dict],
     ) -> None:
         favorite = match_ingredient_to_favorite(ingredient_name, favorite_products, promo_ids)
+        list_options = [o for o in pipeline_options if o.get("source") == "shopping_list"]
         promo_options = [o for o in pipeline_options if o.get("on_promotion")]
+        mapping_uid = get_entry(mappings, ingredient_name).get("accepted_uid")
+        mapping_option = next(
+            (o for o in pipeline_options if o.get("uid") == mapping_uid),
+            None,
+        ) if mapping_uid else None
+
+        is_weekly = ingredient_name.lower() in weekly_keys
+        if is_weekly:
+            if mapping_option and product_name_fits_ingredient(ingredient_name, mapping_option.get("name", "")):
+                resolved.append(_resolved_entry(key, ingredient_name, quantity, mapping_option, "mapping"))
+                return
+            if favorite and product_name_fits_ingredient(ingredient_name, favorite.get("name", "")):
+                resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
+                return
+            needs_favorite.append({
+                "key": key,
+                "ingredient_name": ingredient_name,
+                "quantity": quantity,
+                "status": "needs_favorite",
+                "hint": (
+                    f"Courses hebdo : ajoutez « {ingredient_name} » sur {MIGROS_MY_PRODUCTS_URL} "
+                    "puis relancez week ou validate.py refresh"
+                ),
+            })
+            return
+
+        if list_options:
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, list_options[0], "shopping_list"))
+            return
+
+        if mapping_option and product_name_fits_ingredient(ingredient_name, mapping_option.get("name", "")):
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, mapping_option, "mapping"))
+            return
+
+        compatible_promos = [
+            o for o in promo_options
+            if product_name_fits_ingredient(ingredient_name, o.get("name", ""))
+        ]
+        compatible_search = [
+            o for o in pipeline_options
+            if o.get("source") not in ("shopping_list",)
+            and product_name_fits_ingredient(ingredient_name, o.get("name", ""))
+        ]
 
         if favorite and favorite.get("on_promotion"):
             resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "promo_favorite"))
             return
 
-        if promo_options:
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, promo_options[0], "promo"))
+        if favorite and product_name_fits_ingredient(ingredient_name, favorite.get("name", "")):
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
+            return
+
+        if compatible_promos:
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_promos[0], "promo"))
+            return
+
+        if compatible_search:
+            source = "search" if compatible_search[0].get("source") == "search" else "promo"
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_search[0], source))
             return
 
         if favorite:
@@ -664,12 +748,16 @@ def apply_favorites_workflow(
     session["promos_resolved"] = [
         r["ingredient_name"] for r in resolved if r.get("source") in ("promo", "promo_favorite")
     ]
+    session["list_resolved"] = [
+        r["ingredient_name"] for r in resolved if r.get("source") == "shopping_list"
+    ]
     session["favorites_count"] = len(favorite_products)
     return session
 
 
 def refresh_favorites_workflow(session: dict) -> dict:
     """Re-fetch favorites and re-apply workflow on current session."""
+    from comida.favorites import fetch_favorites_with_details
     from comida.promo_cache import fetch_promotions_cached
 
     favorite_products = fetch_favorites_with_details()
@@ -743,12 +831,19 @@ def validation_summary(session: dict) -> str:
     fav_resolved = session.get("favorites_resolved", [])
     total = len(resolved) + len(pending) + len(needs_fav) + len(manual)
     promos_resolved = session.get("promos_resolved", [])
+    list_resolved = session.get("list_resolved", [])
+    weekly_staples = session.get("weekly_staples", [])
+    weekly_set = {name.lower() for name in weekly_staples}
     lines = [
         f"Validés : {len(resolved)}/{total}",
         f"Favoris manquants : {len(needs_fav)}",
     ]
     if pending:
         lines.append(f"Corrections en attente : {len(pending)}")
+    if weekly_staples:
+        lines.append(f"Courses hebdo : {len(weekly_staples)}")
+    if list_resolved:
+        lines.append(f"Via liste S1 : {len(list_resolved)}")
     if promos_resolved:
         lines.append(f"Via promos : {len(promos_resolved)}")
     if fav_resolved:
@@ -759,11 +854,18 @@ def validation_summary(session: dict) -> str:
         lines.append("")
         lines.append("Liste panier :")
         for r in resolved:
-            promo = " [PROMO]" if r.get("on_promotion") else ""
+            tags = []
+            if r.get("ingredient_name", "").lower() in weekly_set:
+                tags.append("HEBDO")
+            if r.get("source") == "shopping_list":
+                tags.append("S1")
+            if r.get("on_promotion"):
+                tags.append("PROMO")
+            tag_s = f" [{'/'.join(tags)}]" if tags else ""
             qty = r.get("quantity_parsed", 1)
             qty_s = f" × {qty}" if qty and qty > 1 else ""
             lines.append(
-                f"  • {r['ingredient_name']} → {r['name']}{qty_s}{promo} (uid {r['uid']})"
+                f"  • {r['ingredient_name']} → {r['name']}{qty_s}{tag_s} (uid {r['uid']})"
             )
         budget = estimate_basket(resolved)
         lines.append("")

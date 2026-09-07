@@ -62,5 +62,21 @@
     "rejected_uids": [
       100212133
     ]
+  },
+  "carottes": {
+    "ingredient_label": "Carottes",
+    "accepted_uid": 100023482,
+    "backup_uid": null,
+    "rejected_uids": [
+      100053132
+    ]
+  },
+  "sauce-tomate": {
+    "ingredient_label": "Sauce tomate",
+    "accepted_uid": 100010506,
+    "backup_uid": 100036636,
+    "rejected_uids": [
+      100006690
+    ]
   }
 }

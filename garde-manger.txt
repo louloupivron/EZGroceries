@@ -9,6 +9,10 @@ farine
 sucre 
 bouillon de légumes/viande
 levure 
+jus de citron 
+polenta
+sauce soja
+origan séché 
 
 # Toujours acheter (+), même si un article garde-manger correspond
 + riz à sushi

@@ -2,7 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Comida — Courses Migros</title>
   <style>
     :root {
@@ -19,6 +20,8 @@
       --border: #e8e4de;
       --radius: 12px;
       --shadow: 0 2px 12px rgba(0,0,0,.06);
+      --step-size: 2rem;
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -27,23 +30,81 @@
       color: var(--text);
       line-height: 1.5;
       min-height: 100vh;
+      padding-bottom: calc(4.5rem + var(--safe-bottom));
     }
     header {
       background: var(--card);
       border-bottom: 1px solid var(--border);
-      padding: 1rem 1.5rem;
+      padding: .875rem 1rem 1rem;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 20;
       box-shadow: var(--shadow);
     }
-    header h1 { font-size: 1.25rem; font-weight: 700; }
-    header .meta { color: var(--muted); font-size: .875rem; margin-top: .25rem; }
-    .progress-bar {
-      margin-top: .75rem;
-      height: 6px;
+    header h1 { font-size: 1.15rem; font-weight: 700; }
+    .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+    .btn-icon {
+      flex-shrink: 0;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 1rem;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    header .meta { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
+
+    .stepper {
+      display: flex;
+      gap: .25rem;
+      margin-top: .875rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: .25rem;
+    }
+    .stepper::-webkit-scrollbar { display: none; }
+    .step {
+      flex: 1 0 auto;
+      min-width: 4.5rem;
+      text-align: center;
+      font-size: .65rem;
+      color: var(--muted);
+      position: relative;
+    }
+    .step .dot {
+      width: var(--step-size);
+      height: var(--step-size);
+      border-radius: 50%;
       background: var(--border);
-      border-radius: 3px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: .75rem;
+      margin: 0 auto .25rem;
+      border: 2px solid transparent;
+      transition: background .2s, color .2s, border-color .2s;
+    }
+    .step.done .dot { background: var(--green-bg); color: var(--green); }
+    .step.current .dot {
+      background: var(--accent);
+      color: #fff;
+      border-color: #f4a261;
+      box-shadow: 0 0 0 3px rgba(232,93,4,.2);
+    }
+    .step.current .label { color: var(--text); font-weight: 600; }
+
+    .progress-bar {
+      margin-top: .625rem;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
       overflow: hidden;
     }
     .progress-bar .fill {
@@ -53,31 +114,109 @@
     }
     .stats {
       display: flex;
-      gap: 1rem;
-      margin-top: .5rem;
-      font-size: .8rem;
-      color: var(--muted);
-    }
-    main { max-width: 720px; margin: 0 auto; padding: 1.5rem 1rem 6rem; }
-    section { margin-bottom: 2rem; }
-    section h2 {
+      flex-wrap: wrap;
+      gap: .5rem 1rem;
+      margin-top: .4rem;
       font-size: .75rem;
-      text-transform: uppercase;
-      letter-spacing: .05em;
       color: var(--muted);
-      margin-bottom: .75rem;
     }
+
+    main { max-width: 720px; margin: 0 auto; padding: 1rem 1rem 1.5rem; }
+    section { margin-bottom: 1.5rem; }
+    section h2 {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: .625rem;
+    }
+
+    .guide-card {
+      background: linear-gradient(135deg, #fff8f0 0%, #fff 100%);
+      border: 1px solid #f4d9c4;
+      border-radius: var(--radius);
+      padding: 1rem 1.125rem;
+      margin-bottom: 1.25rem;
+      font-size: .875rem;
+    }
+    .guide-card h3 { font-size: .95rem; margin-bottom: .375rem; }
+    .guide-card p { color: var(--muted); margin-bottom: .5rem; }
+    .guide-card code {
+      display: block;
+      background: #1a1a1a;
+      color: #f0ebe3;
+      padding: .625rem .75rem;
+      border-radius: 8px;
+      font-size: .75rem;
+      overflow-x: auto;
+      margin: .5rem 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .guide-card .guide-actions { margin-top: .625rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+
+    .checkout-hero {
+      background: var(--green);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+      text-align: center;
+    }
+    .checkout-hero .total {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .checkout-hero .sub { opacity: .85; font-size: .875rem; margin-top: .25rem; }
+    .checkout-hero a.btn-checkout {
+      display: inline-block;
+      margin-top: 1rem;
+      background: #fff;
+      color: var(--green);
+      font-weight: 700;
+      padding: .75rem 1.5rem;
+      border-radius: 10px;
+      text-decoration: none;
+      font-size: 1rem;
+    }
+    .checkout-hero a.btn-checkout:hover { background: #f0fff4; }
+
     .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1rem 1.25rem;
-      margin-bottom: .75rem;
+      padding: 1rem 1.125rem;
+      margin-bottom: .625rem;
       box-shadow: var(--shadow);
     }
-    .card h3 { font-size: 1rem; font-weight: 600; }
-    .card .qty { color: var(--muted); font-size: .875rem; }
-    .options { margin-top: .75rem; display: flex; flex-direction: column; gap: .5rem; }
+    .card h3 { font-size: .95rem; font-weight: 600; }
+    .card .qty { color: var(--muted); font-size: .8rem; }
+
+    .hint-list { margin-top: .75rem; display: flex; flex-direction: column; gap: .375rem; }
+    .hint-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .5rem;
+      padding: .5rem .625rem;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: .8rem;
+    }
+    .hint-item .hint-name { flex: 1; min-width: 0; }
+    .hint-item .hint-name strong { display: block; font-size: .85rem; }
+    .hint-item .hint-meta { color: var(--muted); font-size: .75rem; }
+    .hint-item a {
+      color: var(--accent);
+      font-weight: 600;
+      text-decoration: none;
+      white-space: nowrap;
+      font-size: .75rem;
+    }
+    .hint-loading { color: var(--muted); font-size: .8rem; font-style: italic; }
+
+    .options { margin-top: .625rem; display: flex; flex-direction: column; gap: .5rem; }
     .option {
       display: flex;
       align-items: flex-start;
@@ -89,32 +228,37 @@
       transition: border-color .15s, background .15s;
     }
     .option:hover { border-color: var(--accent); background: #fffaf5; }
-    .option input { margin-top: .2rem; accent-color: var(--accent); }
-    .option .name { font-weight: 500; font-size: .9rem; }
-    .option .details { font-size: .8rem; color: var(--muted); margin-top: .125rem; }
+    .option input { margin-top: .2rem; accent-color: var(--accent); flex-shrink: 0; }
+    .option .name { font-weight: 500; font-size: .875rem; }
+    .option .details { font-size: .75rem; color: var(--muted); margin-top: .125rem; }
+
     .badge {
       display: inline-block;
-      font-size: .65rem;
+      font-size: .6rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .03em;
-      padding: .125rem .4rem;
+      padding: .1rem .35rem;
       border-radius: 4px;
-      margin-left: .375rem;
+      margin-left: .3rem;
       vertical-align: middle;
     }
     .badge-promo { background: var(--promo-bg); color: var(--promo); }
     .badge-habit { background: var(--green-bg); color: var(--green); }
-    .actions { display: flex; gap: .5rem; margin-top: .75rem; flex-wrap: wrap; }
-    button {
+
+    .actions { display: flex; gap: .5rem; margin-top: .625rem; flex-wrap: wrap; }
+    button, .btn-link {
       font: inherit;
       cursor: pointer;
       border: none;
       border-radius: 8px;
-      padding: .5rem 1rem;
-      font-size: .875rem;
+      padding: .5rem .875rem;
+      font-size: .8rem;
       font-weight: 500;
       transition: background .15s, opacity .15s;
+      text-decoration: none;
+      display: inline-block;
+      text-align: center;
     }
     button:disabled { opacity: .5; cursor: not-allowed; }
     .btn-primary { background: var(--accent); color: #fff; }
@@ -122,44 +266,51 @@
     .btn-secondary { background: var(--border); color: var(--text); }
     .btn-secondary:hover:not(:disabled) { background: #ddd9d3; }
     .btn-danger { background: transparent; color: var(--promo); border: 1px solid var(--promo-bg); }
+    .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+
     .search-row { display: flex; gap: .5rem; margin-top: .5rem; }
     .search-row input {
       flex: 1;
+      min-width: 0;
       padding: .5rem .75rem;
       border: 1px solid var(--border);
       border-radius: 8px;
       font: inherit;
+      font-size: 16px;
     }
     .resolved-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: .5rem;
       padding: .5rem 0;
       border-bottom: 1px solid var(--border);
-      font-size: .9rem;
+      font-size: .875rem;
     }
     .resolved-item:last-child { border-bottom: none; }
-    .resolved-item .product { color: var(--muted); font-size: .8rem; }
-    .pantry-list { font-size: .85rem; color: var(--muted); }
+    .resolved-item .product { color: var(--muted); font-size: .75rem; }
+    .pantry-list { font-size: .8rem; color: var(--muted); }
     .pantry-list li { margin-left: 1.25rem; }
+
     .toast {
       position: fixed;
-      bottom: 5rem;
+      bottom: calc(5rem + var(--safe-bottom));
       left: 50%;
       transform: translateX(-50%);
       background: var(--text);
       color: #fff;
-      padding: .75rem 1.25rem;
+      padding: .625rem 1rem;
       border-radius: 8px;
-      font-size: .875rem;
+      font-size: .8rem;
       opacity: 0;
       transition: opacity .3s;
       pointer-events: none;
       z-index: 100;
-      max-width: 90vw;
+      max-width: 92vw;
       text-align: center;
     }
     .toast.show { opacity: 1; }
+
     footer {
       position: fixed;
       bottom: 0;
@@ -167,56 +318,147 @@
       right: 0;
       background: var(--card);
       border-top: 1px solid var(--border);
-      padding: .75rem 1.5rem;
+      padding: .625rem 1rem calc(.625rem + var(--safe-bottom));
       display: flex;
-      justify-content: center;
-      gap: .75rem;
+      justify-content: stretch;
+      gap: .5rem;
       box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+      z-index: 30;
     }
-    footer button { min-width: 140px; }
-    .empty { text-align: center; color: var(--muted); padding: 2rem; }
-    .push-result {
-      background: var(--green-bg);
-      border: 1px solid #b7e4c7;
+    footer button { flex: 1; min-width: 0; }
+    footer .btn-primary { flex: 1.4; }
+
+    .empty { text-align: center; color: var(--muted); padding: 2rem 1rem; font-size: .9rem; }
+    .auto-banner, .warn-banner, .budget-banner {
       border-radius: var(--radius);
-      padding: 1rem;
-      margin-top: 1rem;
+      padding: .625rem .875rem;
+      font-size: .8rem;
+      margin-bottom: 1rem;
+    }
+    .auto-banner { background: var(--green-bg); color: var(--green); }
+    .warn-banner { background: #fff3cd; border: 1px solid #ffecb5; color: #856404; }
+    .budget-banner { background: #e8f4fd; border: 1px solid #b6d9f2; color: #0c4a6e; }
+    .budget-banner .warn { color: var(--promo); font-weight: 600; }
+
+    .job-banner {
+      background: #1a1a1a;
+      color: #f0ebe3;
+      border-radius: var(--radius);
+      padding: .875rem 1rem;
+      margin-bottom: 1rem;
+      font-size: .8rem;
+    }
+    .job-banner.running { border-left: 4px solid var(--accent); }
+    .job-banner.done { border-left: 4px solid var(--green); background: #1e2e24; }
+    .job-banner.error { border-left: 4px solid var(--promo); background: #2e1e1e; }
+    .job-banner .job-title { font-weight: 600; margin-bottom: .375rem; }
+    .job-banner .job-logs {
+      font-family: ui-monospace, monospace;
+      font-size: .7rem;
+      opacity: .85;
+      max-height: 6rem;
+      overflow-y: auto;
+      margin-top: .5rem;
+    }
+    .job-banner .job-logs div { margin-bottom: .125rem; }
+
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 50;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--card);
+      width: 100%;
+      max-width: 720px;
+      max-height: 92vh;
+      border-radius: var(--radius) var(--radius) 0 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 -8px 32px rgba(0,0,0,.15);
+    }
+    @media (min-width: 600px) {
+      .modal-backdrop { align-items: center; }
+      .modal { border-radius: var(--radius); max-height: 85vh; }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 1.125rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h2 { font-size: 1rem; }
+    .modal-body {
+      padding: 1rem 1.125rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-body label {
+      display: block;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin: .875rem 0 .375rem;
+    }
+    .modal-body label:first-child { margin-top: 0; }
+    .modal-body input, .modal-body select, .modal-body textarea {
+      width: 100%;
+      padding: .5rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 16px;
+    }
+    .modal-body textarea {
+      min-height: 7rem;
+      font-family: ui-monospace, monospace;
+      font-size: .8rem;
+      resize: vertical;
+    }
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+    .modal-footer {
+      padding: .875rem 1.125rem calc(.875rem + var(--safe-bottom));
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: .5rem;
+      justify-content: flex-end;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
       font-size: .875rem;
+      margin-top: .5rem;
     }
-    .push-result a { color: var(--green); font-weight: 600; }
-    .auto-banner {
-      background: var(--green-bg);
-      border-radius: var(--radius);
-      padding: .75rem 1rem;
-      font-size: .85rem;
-      color: var(--green);
-      margin-bottom: 1.5rem;
+    .checkbox-row input { width: auto; }
+
+    @media (min-width: 600px) {
+      header { padding: 1rem 1.5rem; }
+      main { padding: 1.5rem; }
+      footer { padding: .75rem 1.5rem calc(.75rem + var(--safe-bottom)); justify-content: center; }
+      footer button { flex: 0 1 auto; min-width: 130px; }
     }
-    .warn-banner {
-      background: #fff3cd;
-      border: 1px solid #ffecb5;
-      border-radius: var(--radius);
-      padding: .75rem 1rem;
-      font-size: .85rem;
-      color: #856404;
-      margin-bottom: 1.5rem;
-    }
-    .budget-banner {
-      background: #e8f4fd;
-      border: 1px solid #b6d9f2;
-      border-radius: var(--radius);
-      padding: .75rem 1rem;
-      font-size: .9rem;
-      color: #0c4a6e;
-      margin-bottom: 1.5rem;
-    }
-    .budget-banner .warn { color: #9d0208; font-weight: 600; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Comida</h1>
-    <div class="meta" id="recipe">Chargement…</div>
+    <div class="header-row">
+      <div>
+        <h1>Comida</h1>
+        <div class="meta" id="recipe">Chargement…</div>
+      </div>
+      <button class="btn-icon" onclick="openSettings()" title="Réglages" aria-label="Réglages">⚙</button>
+    </div>
+    <nav class="stepper" id="stepper" aria-label="Étapes du workflow"></nav>
     <div class="progress-bar"><div class="fill" id="progress" style="width:0%"></div></div>
     <div class="stats" id="stats"></div>
   </header>
@@ -225,16 +467,86 @@
     <div class="empty">Chargement de la session…</div>
   </main>
 
-  <footer>
-    <button class="btn-secondary" onclick="refresh()">Actualiser</button>
-    <button class="btn-secondary" onclick="refreshFavorites()">Recharger favoris</button>
-    <button class="btn-primary" id="pushBtn" onclick="pushBasket(false)">Pousser vers Migros</button>
+  <footer id="footer">
+    <button class="btn-secondary" onclick="refreshFavorites()">Favoris</button>
+    <button class="btn-primary" id="primaryBtn" onclick="primaryAction()">…</button>
   </footer>
 
   <div class="toast" id="toast"></div>
 
+  <div class="modal-backdrop" id="settingsModal" onclick="if(event.target===this)closeSettings()">
+    <div class="modal" role="dialog" aria-labelledby="settingsTitle">
+      <div class="modal-header">
+        <h2 id="settingsTitle">Réglages</h2>
+        <button class="btn-icon" onclick="closeSettings()" aria-label="Fermer">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="row-2">
+          <div>
+            <label for="setPortions">Portions (cuisine)</label>
+            <input type="number" id="setPortions" min="1" max="24" value="8">
+          </div>
+          <div>
+            <label for="setBasePortions">Base Kookd</label>
+            <input type="number" id="setBasePortions" min="1" max="24" value="8">
+          </div>
+        </div>
+        <label for="setRecipe">Export recette</label>
+        <select id="setRecipe"></select>
+        <label for="setListUrl">Lien liste Migros</label>
+        <input type="url" id="setListUrl" placeholder="https://www.migros.ch/list/xxxxx" inputmode="url">
+        <p style="font-size:.75rem;color:var(--muted);margin-top:.25rem">
+          Lien partagé de votre liste S1 (slug ≠ id API). Visible après push.
+        </p>
+        <label for="setWeekly">courses-hebdo.txt</label>
+        <textarea id="setWeekly" spellcheck="false"></textarea>
+        <label for="setPantry">garde-manger.txt</label>
+        <textarea id="setPantry" spellcheck="false"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeSettings()">Annuler</button>
+        <button class="btn-primary" onclick="saveSettings()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let session = null;
+    let jobPollTimer = null;
+    const hintCache = new Map();
+
+    const STEP_GUIDES = {
+      promos: {
+        title: 'Étape 1 — Promos S1',
+        body: 'Exporte les promos de votre liste Migros S1 vers exports/promos-s1.txt (~1 min).',
+        cmd: 'uv run python main.py promos --list S1',
+        job: 'promos',
+      },
+      kookd: {
+        title: 'Étape 2 — Export Kookd',
+        body: 'Dans Kookd, exportez la semaine en .txt et placez le fichier dans exports/.',
+        cmd: 'exports/semaine.txt',
+        action: 'kookd',
+      },
+      week: {
+        title: 'Étape 3 — Analyse semaine',
+        body: 'Analyse recettes + garde-manger + courses hebdo, puis ouvre la validation.',
+        cmd: 'uv run python main.py week exports/semaine.txt --pantry',
+        job: 'week',
+      },
+      validate: {
+        title: 'Étape 4 — Favoris & validation',
+        body: 'Validez les promos, ajoutez les favoris manquants, corrigez les recherches.',
+      },
+      push: {
+        title: 'Étape 5 — Push Migros',
+        body: 'Envoyez les produits validés vers votre liste S1 sur Migros Online.',
+      },
+      checkout: {
+        title: 'Étape 6 — Checkout',
+        body: 'Ouvrez Migros pour choisir le créneau de livraison et payer.',
+      },
+    };
 
     function toast(msg, duration = 3000) {
       const el = document.getElementById('toast');
@@ -255,7 +567,7 @@
 
     function esc(s) {
       const d = document.createElement('div');
-      d.textContent = s;
+      d.textContent = s ?? '';
       return d.innerHTML;
     }
 
@@ -267,19 +579,142 @@
       return html;
     }
 
-    function renderNeedsFavorite(item) {
-      const url = session.my_products_url || 'https://www.migros.ch/fr/my-products';
+    function renderStepper(workflow) {
+      if (!workflow?.steps) return '';
+      return workflow.steps.map(step => `
+        <div class="step ${step.status}" title="${esc(step.label)}">
+          <div class="dot">${step.done ? '✓' : esc(step.short)}</div>
+          <div class="label">${esc(step.label)}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderGuide(workflow) {
+      const stepId = workflow?.current_step || 'promos';
+      const guide = STEP_GUIDES[stepId] || STEP_GUIDES.promos;
+      const jobRunning = session?.job?.status === 'running';
+      let html = `<div class="guide-card"><h3>${esc(guide.title)}</h3><p>${esc(guide.body)}</p>`;
+      if (guide.cmd) html += `<code>${esc(guide.cmd)}</code>`;
+      if (guide.job) {
+        const label = guide.job === 'promos' ? 'Lancer export promos' : 'Lancer analyse';
+        const extra = guide.job === 'week'
+          ? `<label class="checkbox-row"><input type="checkbox" id="refreshPromos"> Rafraîchir cache promos</label>`
+          : '';
+        html += `<div class="guide-actions">
+          <button class="btn-primary" onclick="startJob('${guide.job}')" ${jobRunning ? 'disabled' : ''}>${label}</button>
+          ${extra}
+        </div>`;
+      }
+      if (guide.action === 'kookd') {
+        const done = workflow?.ui_state?.kookd_done;
+        html += `<div class="guide-actions">
+          <button class="btn-primary" onclick="markKookdDone()">${done ? '✓ Export fait' : 'J’ai exporté Kookd'}</button>
+        </div>`;
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function renderJobBanner(job) {
+      if (!job) return '';
+      const cls = job.status || 'running';
+      const title = job.type === 'promos' ? 'Export promos' : job.type === 'week' ? 'Analyse semaine' : job.type;
+      const logs = (job.logs || []).map(l => `<div>${esc(l)}</div>`).join('');
+      const statusLabel = cls === 'running' ? 'En cours…' : cls === 'done' ? 'Terminé' : 'Erreur';
       return `
-        <div class="card">
-          <h3>${esc(item.ingredient_name)}</h3>
-          <div class="qty">${esc(item.quantity || '')}</div>
-          <p style="font-size:.875rem;margin-top:.5rem">
-            Aucun favori correspondant. Ajoutez un produit sur
-            <a href="${url}" target="_blank">Mes produits Migros</a>,
-            puis cliquez <strong>Recharger favoris</strong>.
-          </p>
+        <div class="job-banner ${cls}">
+          <div class="job-title">${esc(title)} — ${statusLabel}</div>
+          ${job.error ? `<div>${esc(job.error)}</div>` : ''}
+          ${logs ? `<div class="job-logs">${logs}</div>` : ''}
         </div>
       `;
+    }
+
+    function renderCheckout(workflow) {
+      const push = workflow?.ui_state?.last_push;
+      const co = push?.checkout;
+      if (!co?.ok || !co.checkoutUrl) return '';
+
+      const total = co.onlineTotal != null
+        ? `${Number(co.onlineTotal).toFixed(2)} CHF`
+        : '—';
+      const minWarn = co.minimumOrderValueReached === false
+        ? '<p style="margin-top:.5rem;font-size:.8rem;opacity:.9">⚠ Minimum de commande non atteint</p>'
+        : '';
+
+      return `
+        <div class="checkout-hero">
+          <div class="total">${esc(total)}</div>
+          <div class="sub">${co.itemCount || '?'} article(s) sur Migros Online</div>
+          ${minWarn}
+          <a class="btn-checkout" href="${esc(co.checkoutUrl)}" target="_blank" rel="noopener">
+            Ouvrir le checkout Migros →
+          </a>
+        </div>
+      `;
+    }
+
+    function favoriteSearchQuery(item) {
+      const name = (item.ingredient_name || '').trim();
+      const de = (item.search_hint || item.de_name || '').trim();
+      return de || name;
+    }
+
+    function renderNeedsFavorite(item) {
+      const url = session.my_products_url || 'https://www.migros.ch/fr/my-products';
+      const key = esc(item.key);
+      const query = esc(favoriteSearchQuery(item));
+      return `
+        <div class="card" data-fav-key="${key}">
+          <h3>${esc(item.ingredient_name)}</h3>
+          <div class="qty">${esc(item.quantity || '')}</div>
+          <p style="font-size:.8rem;margin-top:.5rem;color:var(--muted)">
+            Ajoutez un favori sur Migros, puis <strong>Recharger favoris</strong>.
+          </p>
+          <div class="hint-list" id="hints-${key}">
+            <div class="hint-loading">Suggestions Migros…</div>
+          </div>
+          <div class="actions">
+            <a class="btn-outline btn-link" href="${url}" target="_blank" rel="noopener">Mes produits</a>
+            <button class="btn-secondary" onclick="loadFavoriteHints('${key}', '${query}')">Actualiser</button>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadFavoriteHints(key, query) {
+      const el = document.getElementById('hints-' + key);
+      if (!el) return;
+      const cacheKey = key + '|' + query;
+      if (hintCache.has(cacheKey)) {
+        el.innerHTML = hintCache.get(cacheKey);
+        return;
+      }
+      el.innerHTML = '<div class="hint-loading">Recherche…</div>';
+      try {
+        const data = await fetch('/api/favorite-hints?q=' + encodeURIComponent(query)).then(r => r.json());
+        if (!data.products?.length) {
+          el.innerHTML = '<div class="hint-loading">Aucun résultat — essayez une recherche manuelle.</div>';
+          return;
+        }
+        const html = data.products.map(p => `
+          <div class="hint-item">
+            <div class="hint-name">
+              <strong>${esc(p.name)}</strong>
+              <div class="hint-meta">
+                ${p.package ? esc(p.package) + ' · ' : ''}
+                ${p.price_chf != null ? p.price_chf + ' CHF' : ''}
+                ${p.on_promotion ? ' · <span class="badge badge-promo">Promo</span>' : ''}
+              </div>
+            </div>
+            ${p.url ? `<a href="${esc(p.url)}" target="_blank" rel="noopener">Voir →</a>` : ''}
+          </div>
+        `).join('');
+        hintCache.set(cacheKey, html);
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = `<div class="hint-loading">${esc(e.message)}</div>`;
+      }
     }
 
     function renderPending(item) {
@@ -314,7 +749,7 @@
       return `
         <div class="card" data-key="${esc(item.key)}">
           <h3>${esc(item.ingredient_name)}</h3>
-          <div class="qty">Recherche manuelle requise</div>
+          <div class="qty">Recherche manuelle</div>
           <div class="search-row">
             <input type="text" placeholder="Recherche Migros…" id="search-${esc(item.key)}"
               onkeydown="if(event.key==='Enter')search('${esc(item.key)}')">
@@ -334,7 +769,7 @@
             <strong>${esc(item.ingredient_name)}</strong>${promo}
             <div class="product">${esc(item.name)}${qty}${price}</div>
           </div>
-          <button class="btn-secondary" style="font-size:.75rem;padding:.25rem .5rem"
+          <button class="btn-secondary" style="font-size:.7rem;padding:.2rem .45rem"
             onclick="reopen('${esc(item.key)}')">Modifier</button>
         </div>
       `;
@@ -349,86 +784,244 @@
       return `
         <div class="budget-banner">
           <strong>~${budget.estimated_total_chf.toFixed(2)} CHF</strong>
-          <span style="color:var(--muted)"> (${budget.priced_count}/${budget.item_count} prix connus)</span>
+          <span style="opacity:.7"> (${budget.priced_count}/${budget.item_count} prix)</span>
           ${gapHtml}
         </div>
       `;
     }
 
+    function updateFooter(workflow) {
+      const btn = document.getElementById('primaryBtn');
+      const step = workflow?.current_step || 'validate';
+      const s = session?.stats || {};
+
+      if (step === 'checkout') {
+        const url = workflow?.ui_state?.last_push?.checkout?.checkoutUrl;
+        btn.textContent = 'Checkout Migros';
+        btn.onclick = () => { if (url) window.open(url, '_blank'); else toast('Pas de lien checkout'); };
+        btn.disabled = !url;
+        return;
+      }
+      if (step === 'push') {
+        const needsForce = s.pending || s.manual || s.needs_favorite;
+        btn.textContent = needsForce ? 'Pousser (forcer)' : 'Pousser Migros';
+        btn.onclick = () => pushBasket(false);
+        btn.disabled = !s.resolved;
+        return;
+      }
+      if (step === 'promos') {
+        const running = session?.job?.status === 'running';
+        btn.textContent = 'Export promos';
+        btn.onclick = () => startJob('promos');
+        btn.disabled = running;
+        return;
+      }
+      if (step === 'week') {
+        const running = session?.job?.status === 'running';
+        btn.textContent = 'Analyser semaine';
+        btn.onclick = () => startJob('week');
+        btn.disabled = running;
+        return;
+      }
+      if (step === 'validate') {
+        btn.textContent = s.needs_favorite ? 'Recharger favoris' : 'Actualiser';
+        btn.onclick = () => s.needs_favorite ? refreshFavorites() : refresh();
+        btn.disabled = false;
+        return;
+      }
+      btn.textContent = 'Actualiser';
+      btn.onclick = () => refresh();
+      btn.disabled = false;
+    }
+
     function render() {
       if (!session) return;
-      const s = session.stats;
-      document.getElementById('recipe').textContent = session.recipe || 'Session Comida';
+      const s = session.stats || {};
+      const workflow = session.workflow || {};
+
+      document.getElementById('recipe').textContent = session.recipe || 'Workflow courses Migros';
+      document.getElementById('stepper').innerHTML = renderStepper(workflow);
       document.getElementById('progress').style.width =
         s.total ? `${Math.round((s.resolved / s.total) * 100)}%` : '0%';
       document.getElementById('stats').innerHTML =
-        `<span>${s.resolved} résolu(s)</span>` +
+        `<span>${s.resolved || 0} validé(s)</span>` +
         `<span>${(session.promos_resolved || []).length} promo(s)</span>` +
-        `<span>${s.needs_favorite || 0} favori(s) manquant(s)</span>`;
+        `<span>${s.needs_favorite || 0} favori(s)</span>`;
 
-      const pushBtn = document.getElementById('pushBtn');
-      pushBtn.disabled = s.resolved === 0;
-      pushBtn.textContent = (s.pending || s.needs_favorite)
-        ? 'Pousser (forcer)'
-        : 'Pousser vers Migros';
+      updateFooter(workflow);
 
-      let html = '';
+      let html = renderJobBanner(session.job);
+      html += renderGuide(workflow);
 
-      if (session.promos_resolved && session.promos_resolved.length) {
-        html += `<div class="auto-banner">✓ Via promos : ${session.promos_resolved.map(esc).join(', ')}</div>`;
+      if (workflow.current_step === 'checkout' || workflow.ui_state?.last_push) {
+        html += renderCheckout(workflow);
       }
 
-      if (session.favorites_resolved && session.favorites_resolved.length) {
-        html += `<div class="auto-banner">✓ Via favoris : ${session.favorites_resolved.map(esc).join(', ')}</div>`;
+      if (session.shared_list_url || session.publish_url) {
+        html += `<p style="font-size:.75rem;color:var(--muted);margin-bottom:1rem">`;
+        if (session.shared_list_url) {
+          html += `Liste Migros : <a href="${esc(session.shared_list_url)}" target="_blank" rel="noopener">ouvrir</a>`;
+        }
+        if (session.publish_url) {
+          html += `${session.shared_list_url ? ' · ' : ''}Page mobile : <a href="${esc(session.publish_url)}" target="_blank" rel="noopener">GitHub Pages</a>`;
+          html += ` · <button class="btn-secondary" style="font-size:.7rem;padding:.15rem .4rem" onclick="publishPage()">Régénérer</button>`;
+        }
+        html += `</p>`;
       }
 
-      if (session.needs_favorite && session.needs_favorite.length) {
+      if (session.promos_resolved?.length) {
+        html += `<div class="auto-banner">✓ Promos : ${session.promos_resolved.map(esc).join(', ')}</div>`;
+      }
+      if (session.favorites_resolved?.length) {
+        html += `<div class="auto-banner">✓ Favoris : ${session.favorites_resolved.map(esc).join(', ')}</div>`;
+      }
+
+      if (session.needs_favorite?.length) {
         html += '<section><h2>Favoris manquants</h2>';
-        html += `<div class="warn-banner">${session.needs_favorite.length} ingrédient(s) sans favori Migros. `;
-        html += `<a href="${session.my_products_url || 'https://www.migros.ch/fr/my-products'}" target="_blank">Ouvrir Mes produits</a></div>`;
+        html += `<div class="warn-banner">${session.needs_favorite.length} ingrédient(s) — suggestions ci-dessous</div>`;
         html += session.needs_favorite.map(renderNeedsFavorite).join('');
         html += '</section>';
       }
 
-      if (session.pending && session.pending.length) {
-        html += '<section><h2>Corrections en attente</h2>';
+      if (session.pending?.length) {
+        html += '<section><h2>Promos à valider</h2>';
         html += session.pending.map(renderPending).join('');
         html += '</section>';
       }
 
-      if (session.manual && session.manual.length) {
+      if (session.manual?.length) {
         html += '<section><h2>Recherche manuelle</h2>';
         html += session.manual.map(renderManual).join('');
         html += '</section>';
       }
 
-      if (session.resolved && session.resolved.length) {
-        html += '<section><h2>Panier</h2>';
+      if (session.resolved?.length) {
+        html += '<section><h2>Panier validé</h2>';
         html += renderBudget(session.budget);
-        html += '<div class="card">';
-        html += session.resolved.map(renderResolved).join('');
-        html += '</div></section>';
+        html += '<div class="card">' + session.resolved.map(renderResolved).join('') + '</div>';
+        html += '</section>';
       }
 
-      if (session.pantry_skipped && session.pantry_skipped.length) {
-        html += '<section><h2>Garde-manger (ignorés)</h2><ul class="pantry-list card">';
+      if (session.pantry_skipped?.length) {
+        html += '<section><h2>Garde-manger</h2><ul class="pantry-list card">';
         html += session.pantry_skipped.map(([raw, rule]) =>
           `<li>${esc(raw)} → ${esc(rule)}</li>`
         ).join('');
         html += '</ul></section>';
       }
 
-      if (!html || (!session.pending.length && !session.manual.length && !session.resolved.length && !session.needs_favorite?.length)) {
-        html = '<div class="empty">Aucune session active. Lancez <code>uv run python main.py week</code>.</div>';
+      if (!session.recipe && !session.resolved?.length && workflow.current_step !== 'checkout') {
+        html += '<div class="empty">Lancez <code>main.py week</code> pour démarrer la validation.</div>';
       }
 
       document.getElementById('app').innerHTML = html;
+
+      (session.needs_favorite || []).forEach(item => {
+        loadFavoriteHints(item.key, favoriteSearchQuery(item));
+      });
+    }
+
+    async function publishPage() {
+      try {
+        const data = await api('/api/publish', {});
+        toast(`Page générée — git push pour ${data.publish_url}`);
+      } catch (e) { toast(e.message); }
+    }
+
+    async function markKookdDone() {
+      try {
+        await api('/api/kookd-done', { done: true });
+        toast('Export Kookd noté');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function startJob(type) {
+      try {
+        const body = { type };
+        if (type === 'week') {
+          const cb = document.getElementById('refreshPromos');
+          body.refresh_promos = cb ? cb.checked : false;
+          if (session?.settings?.recipe_export) body.recipe_export = session.settings.recipe_export;
+        }
+        const data = await api('/api/jobs', body);
+        session.job = data.job;
+        toast(type === 'promos' ? 'Export promos démarré' : 'Analyse démarrée');
+        render();
+        pollJob();
+      } catch (e) { toast(e.message); }
+    }
+
+    function pollJob() {
+      if (jobPollTimer) clearInterval(jobPollTimer);
+      jobPollTimer = setInterval(async () => {
+        try {
+          const data = await fetch('/api/jobs').then(r => r.json());
+          session.job = data.job;
+          if (!data.job || data.job.status !== 'running') {
+            clearInterval(jobPollTimer);
+            jobPollTimer = null;
+            if (data.job?.status === 'done') {
+              toast(data.job.type === 'promos' ? 'Promos exportées' : 'Analyse terminée');
+              await refresh();
+            } else if (data.job?.status === 'error') {
+              toast('Erreur : ' + (data.job.error || 'job'));
+              render();
+            }
+            return;
+          }
+          render();
+        } catch (_) { /* ignore */ }
+      }, 2000);
+    }
+
+    function openSettings() {
+      const s = session?.settings || {};
+      document.getElementById('setPortions').value = s.portions || 8;
+      document.getElementById('setBasePortions').value = s.base_portions || 8;
+      document.getElementById('setWeekly').value = s.weekly_text || '';
+      document.getElementById('setPantry').value = s.pantry_text || '';
+      document.getElementById('setListUrl').value = s.list_url || s.list_slug || '';
+      const sel = document.getElementById('setRecipe');
+      const exports = s.recipe_exports || [];
+      sel.innerHTML = exports.map(f =>
+        `<option value="${esc(f)}" ${f === s.recipe_export ? 'selected' : ''}>${esc(f)}</option>`
+      ).join('') || '<option value="semaine.txt">semaine.txt</option>';
+      document.getElementById('settingsModal').classList.add('open');
+    }
+
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.remove('open');
+    }
+
+    async function saveSettings() {
+      try {
+        const data = await api('/api/settings', {
+          portions: parseInt(document.getElementById('setPortions').value, 10),
+          base_portions: parseInt(document.getElementById('setBasePortions').value, 10),
+          recipe_export: document.getElementById('setRecipe').value,
+          list_url: document.getElementById('setListUrl').value.trim(),
+          weekly_text: document.getElementById('setWeekly').value,
+          pantry_text: document.getElementById('setPantry').value,
+        });
+        session.settings = data.settings;
+        session.shared_list_url = data.settings.list_url || null;
+        closeSettings();
+        toast('Réglages enregistrés');
+        render();
+      } catch (e) { toast(e.message); }
+    }
+
+    function primaryAction() {
+      const btn = document.getElementById('primaryBtn');
+      if (btn.onclick) btn.onclick();
     }
 
     async function refreshFavorites() {
       try {
         const data = await api('/api/refresh', {});
-        toast(data.needs_favorite ? `${data.needs_favorite} favori(s) encore manquant(s)` : 'Favoris rechargés');
+        hintCache.clear();
+        toast(data.needs_favorite ? `${data.needs_favorite} favori(s) manquant(s)` : 'Favoris OK');
         await refresh();
       } catch (e) { toast(e.message); }
     }
@@ -436,6 +1029,7 @@
     async function refresh() {
       try {
         session = await fetch('/api/session').then(r => r.json());
+        if (session.job?.status === 'running') pollJob();
         render();
       } catch (e) {
         toast('Erreur : ' + e.message);
@@ -449,9 +1043,8 @@
 
     async function accept(key) {
       try {
-        const rank = selectedRank(key);
-        await api('/api/accept', { key, rank });
-        toast('Choix enregistré');
+        await api('/api/accept', { key, rank: selectedRank(key) });
+        toast('Enregistré');
         await refresh();
       } catch (e) { toast(e.message); }
     }
@@ -467,7 +1060,7 @@
     async function search(key) {
       const input = document.getElementById('search-' + key);
       const query = input ? input.value.trim() : '';
-      if (!query) { toast('Entrez un terme de recherche'); return; }
+      if (!query) { toast('Entrez un terme'); return; }
       try {
         const data = await api('/api/search', { key, query });
         toast(data.message || 'Résultats ajoutés');
@@ -478,34 +1071,30 @@
     async function reopen(key) {
       try {
         await api('/api/reopen', { key });
-        toast('Ingrédient rouvert');
+        toast('Rouvert');
         await refresh();
       } catch (e) { toast(e.message); }
     }
 
     async function pushBasket(force) {
       if (!session) return;
-      const needsForce = session.stats.pending || session.stats.manual || session.stats.needs_favorite;
+      const s = session.stats || {};
+      const needsForce = s.pending || s.manual || s.needs_favorite;
       if (needsForce && !force) {
-        const msg = `${session.stats.needs_favorite || 0} favori(s) manquant(s). Pousser quand même ?`;
-        if (!confirm(msg)) return;
+        if (!confirm(`${s.needs_favorite || 0} favori(s) manquant(s). Pousser quand même ?`)) return;
         force = true;
       }
       try {
         const data = await api('/api/push', { force });
-        const r = data.result;
-        let msg = `${r.results?.length || 0} produit(s) ajouté(s)`;
-        if (r.checkout?.checkoutUrl) {
-          msg += ` — <a href="${r.checkout.checkoutUrl}" target="_blank">Ouvrir le panier</a>`;
-          document.getElementById('app').insertAdjacentHTML('beforeend',
-            `<div class="push-result">${msg}</div>`);
-        }
-        toast('Panier Mis à jour !');
+        session.workflow = data.workflow;
+        if (data.ui_state) session.workflow.ui_state = data.ui_state;
+        toast(`${data.result?.results?.length || 0} produit(s) ajouté(s)`);
+        await refresh();
       } catch (e) { toast(e.message); }
     }
 
     refresh();
-    setInterval(refresh, 15000);
+    setInterval(refresh, 20000);
   </script>
 </body>
 </html>

@@ -78,10 +78,17 @@ def load_pantry(path: Path) -> tuple[list[PantryStock], list[PantryStock]]:
 
 
 def _word_match(pantry_term: str, ingredient_name: str) -> bool:
-    """Avoid false positives like nori ↔ riz."""
+    """Avoid false positives like nori ↔ riz, thon ↔ jus, chou-fleur ↔ levure."""
     if len(pantry_term) <= 4:
         return bool(re.search(rf"\b{re.escape(pantry_term)}\b", ingredient_name))
-    return pantry_term in ingredient_name or ingredient_name in pantry_term
+    if pantry_term in ingredient_name or ingredient_name in pantry_term:
+        return True
+    # Require a shared token of 5+ chars — partial_ratio alone is too loose.
+    ing_tokens = {t for t in re.findall(r"[a-zàâäéèêëïîôùûüç]+", ingredient_name) if len(t) >= 5}
+    for token in re.findall(r"[a-zàâäéèêëïîôùûüç]+", pantry_term):
+        if len(token) >= 5 and token in ing_tokens:
+            return True
+    return False
 
 
 def _pantry_keywords(item: str) -> list[str]:
@@ -111,10 +118,26 @@ def find_pantry_match(
 ) -> PantryStock | None:
     name = ingredient_name.lower()
     for item in pantry:
+        pantry_tokens = [
+            t for t in re.findall(r"[a-zàâäéèêëïîôùûüç]+", item.name.lower()) if len(t) >= 3
+        ]
+        if len(pantry_tokens) >= 2:
+            pantry_name = item.name.lower()
+            if "en tout genre" in pantry_name:
+                if pantry_tokens[0] in name:
+                    return item
+                continue
+            if re.search(r"\s+et\s+|/", pantry_name):
+                if any(token in name for token in pantry_tokens):
+                    return item
+                continue
+            if all(token in name for token in pantry_tokens):
+                return item
+            continue
         for keyword in _pantry_keywords(item.name):
             if _word_match(keyword, name):
                 return item
-        if len(item.name) > 4 and fuzz.partial_ratio(item.name, name) >= threshold:
+        if len(item.name) > 4 and fuzz.token_set_ratio(item.name, name) >= threshold:
             return item
     return None
 

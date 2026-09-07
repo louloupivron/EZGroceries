@@ -1,0 +1,26 @@
+services:
+  comida:
+    build: .
+    container_name: comida
+    restart: unless-stopped
+    ports:
+      - "${COMIDA_PORT:-8765}:8765"
+    environment:
+      COMIDA_UI_HOST: "0.0.0.0"
+      COMIDA_PORT: "8765"
+      COMIDA_NO_BROWSER: "1"
+      HOME: /app/data
+    env_file:
+      - .env
+    volumes:
+      # Session, cache promos, état UI, session Migros (via HOME)
+      - ./data:/app/data
+      # Exports Kookd + promos (déposez semaine.txt ici)
+      - ./exports:/app/exports
+      # Page mobile GitHub Pages / NAS
+      - ./docs:/app/docs
+      # Config éditable depuis l'UI
+      - ./.env:/app/.env
+      - ./garde-manger.txt:/app/garde-manger.txt
+      - ./courses-hebdo.txt:/app/courses-hebdo.txt
+      - ./mappings.json:/app/mappings.json

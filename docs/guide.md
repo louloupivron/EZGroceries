@@ -34,6 +34,8 @@ uv run python main.py promos --list S1 --telegram
 uv run python main.py week exports/semaine.txt
 ```
 
+Les ingrédients déjà sur la liste Migros cible (ex. **S1** dans `.env`) sont résolus en priorité, avant la recherche dans toutes les promos.
+
 3. Ajouter les favoris manquants sur Migros si besoin, puis pousser vers le panier.
 4. Pousser vers Migros et checkout sur migros.ch.
 
@@ -152,6 +154,22 @@ huile en tout genre
 # Toujours acheter
 + riz à sushi
 ```
+
+---
+
+## Étape 2b — Courses hebdo (optionnel)
+
+Fichier : `courses-hebdo.txt`
+
+Ingrédients **ajoutés chaque semaine** en plus de l’export Kookd (pain toast, bananes, lait de riz…). Ils ne passent pas par le garde-manger.
+
+```text
+pain toast
+6 pièces bananes
+1 l lait de riz
+```
+
+Sans quantité → **1 pièce**. Chaque ligne doit avoir un **favori Migros** (ou une entrée dans `mappings.json`).
 
 ---
 
@@ -333,6 +351,7 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 | Fichier | Rôle |
 |---------|------|
 | `garde-manger.txt` | Stock maison (quantités) + exceptions `+` |
+| `courses-hebdo.txt` | Ingrédients ajoutés chaque semaine (hors Kookd) |
 | `data/promo_cache.json` | Cache promos Migros (TTL 24h) |
 | `data/validation_session.json` | Session courante de validation |
 | `mappings.json` | Choix mémorisés (uid, backups, refus) |

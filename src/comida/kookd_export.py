@@ -252,6 +252,23 @@ def _translation_source(product: dict) -> str:
     return " ".join(p for p in (title, name) if p).strip() or _name_blob(product)
 
 
+def _refine_bean_label(label: str, product: dict) -> str:
+    blob = _normalize(
+        f"{product.get('title') or ''} {_name_blob(product)} "
+        f"{(product.get('productInformation') or {}).get('mainInformation', {}).get('ingredients', '')}"
+    )
+    if "bohnen" not in blob and "haricot" not in _normalize(label):
+        return label
+    if "extrafein" in blob:
+        return "haricots verts extra-fins"
+    if any(k in blob for k in ("grun", "grün", "grune", "grüne")):
+        return "haricots verts"
+    crumbs = " ".join(_breadcrumb_names(product))
+    if "tiefkühl" in crumbs or "tiefkuhl" in crumbs:
+        return "haricots verts"
+    return label
+
+
 def _refine_mozzarella_label(label: str, product: dict) -> str:
     blob = _normalize(f"{product.get('title') or ''} {_name_blob(product)}")
     if "stange" in blob or "block" in blob or "bloc" in blob:
@@ -270,6 +287,7 @@ def _to_kookd_label(product: dict) -> str:
     else:
         label = translate_product_name(source or name)
     label = _refine_cheese_label(label, product)
+    label = _refine_bean_label(label, product)
     label = _refine_mozzarella_label(label, product)
     if any(k in _name_blob(product) for k in MOMO_HINTS):
         label = "momos à accompagner de riz et sauce"
