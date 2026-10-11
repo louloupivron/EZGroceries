@@ -325,3 +325,23 @@ def run_telegram_test() -> None:
 def telegram_auto_send_enabled() -> bool:
     _load_dotenv()
     return os.environ.get("TELEGRAM_AUTO_SEND", "").strip().lower() in ("1", "true", "yes")
+
+
+def telegram_send_ui_link_enabled() -> bool:
+    _load_dotenv()
+    return os.environ.get("TELEGRAM_SEND_UI_LINK", "true").strip().lower() in ("1", "true", "yes")
+
+
+def send_ui_access_link(port: int, *, recipe: str | None = None) -> bool:
+    """Send mobile UI URLs to the Comida Telegram topic. Returns True if sent."""
+    if not telegram_send_ui_link_enabled():
+        return False
+    try:
+        cfg = TelegramConfig.from_env()
+    except RuntimeError:
+        return False
+
+    from comida.ui.access import format_access_message
+
+    send_message(format_access_message(port, recipe=recipe), config=cfg)
+    return True

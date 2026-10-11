@@ -17,6 +17,7 @@ from comida.basket import (
 from comida.migros_client import search_products
 from comida.promo_cache import fetch_promotions_cached
 from comida.telegram import run_telegram_setup, run_telegram_test, send_promos_export, send_text
+from comida.telegram_schedule import run_scheduled_step
 from comida.validation import (
     accept_option,
     add_search_results,
@@ -105,10 +106,21 @@ def cmd_push(args: list[str]) -> None:
         print("Complétez ou relancez avec : validate.py push --force")
         sys.exit(1)
 
+    revue = [r for r in resolved if r.get("quantity_confidence") == "revue"]
     items = resolved_to_basket_items(resolved)
-    print(f"Poussée de {len(items)} produit(s) vers Migros Online…")
+    if revue:
+        print(f"⚠ {len(revue)} quantité(s) à confirmer, non poussées :")
+        for row in revue:
+            note = row.get("quantity_note") or "estimation"
+            print(f"  • {row.get('ingredient_name')} × {row.get('quantity_parsed')} ({note})")
+    if not items:
+        print("Aucun produit poussable. Confirmez les quantités en revue ou complétez les favoris.")
+        sys.exit(1)
+    list_name = session.get("list_name")
+    target = f"liste {list_name}" if list_name else "liste .env"
+    print(f"Poussée de {len(items)} produit(s) vers Migros Online ({target})…")
     try:
-        result = push_items(items)
+        result = push_items(items, list_name=list_name)
     except RuntimeError as e:
         print(f"Erreur : {e}")
         print("Configurez .env (voir .env.example) puis : uv run python validate.py lists")
@@ -128,8 +140,9 @@ def cmd_push(args: list[str]) -> None:
         print(f"Liste cible (shoppingListId) : {list_id}")
     if checkout.get("ok"):
         print()
+        label = list_name or os.environ.get("MIGROS_SHOPPING_LIST_NAME", "Migros")
         print(
-            f"Liste S1 : {checkout.get('itemCount')} ligne(s), "
+            f"Liste {label} : {checkout.get('itemCount')} ligne(s), "
             f"~{checkout.get('onlineTotal')} CHF en ligne"
         )
         print(f"Checkout : {checkout.get('checkoutUrl')}")
@@ -139,6 +152,12 @@ def cmd_push(args: list[str]) -> None:
         print(checkout.get("message", ""))
     else:
         print(checkout.get("message", "Checkout non disponible."))
+
+    from comida.basket import record_pushed_quantities
+    from comida.validation import save_session
+
+    record_pushed_quantities(session, result.get("results", []))
+    save_session(session)
 
     if os.environ.get("TELEGRAM_SEND_ON_PUSH", "").strip().lower() in ("1", "true", "yes"):
         _maybe_send_push_telegram(checkout, result)
@@ -273,6 +292,21 @@ def cmd_telegram_test() -> None:
         sys.exit(1)
 
 
+def cmd_telegram_schedule(args: list[str]) -> None:
+    force = "--force" in args
+    rest = [a for a in args if a != "--force"]
+    step = rest[0] if rest else None
+    try:
+        result = run_scheduled_step(step, force=force)
+    except (RuntimeError, ValueError) as e:
+        print(f"Erreur : {e}")
+        sys.exit(1)
+    if result.get("skipped"):
+        print(f"Ignoré : {result.get('reason', 'déjà envoyé')}")
+    else:
+        print("✓ Message Telegram envoyé")
+
+
 def cmd_send(args: list[str]) -> None:
     if not args:
         print("Usage: validate.py send <fichier.txt> [--title \"Titre\"]")
@@ -296,6 +330,28 @@ def cmd_send(args: list[str]) -> None:
     except RuntimeError as e:
         print(f"Erreur : {e}")
         sys.exit(1)
+
+
+def cmd_ui_link() -> None:
+    from comida.telegram import send_ui_access_link
+    from comida.ui.access import print_access_urls
+    from comida.ui.server import ui_port
+
+    port = ui_port()
+    try:
+        session = load_session()
+        recipe = Path(session.get("recipe", "")).stem or None
+    except FileNotFoundError:
+        recipe = None
+    try:
+        if send_ui_access_link(port, recipe=recipe):
+            print("✓ Lien mobile envoyé sur Telegram")
+        else:
+            print("Non envoyé (TELEGRAM_SEND_UI_LINK=false ou Telegram non configuré)")
+    except RuntimeError as e:
+        print(f"Erreur : {e}")
+        sys.exit(1)
+    print_access_urls(port)
 
 
 def cmd_publish() -> None:
@@ -348,7 +404,11 @@ def cmd_refresh() -> None:
 
 def main() -> None:
     if len(sys.argv) < 2:
-        print("Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|publish|send|lists|logout|favorites|refresh|telegram-setup|telegram-test")
+        print(
+            "Usage: validate.py show|accept|reject|search|reopen|summary|basket|push|"
+            "publish|ui-link|send|lists|logout|favorites|refresh|"
+            "telegram-setup|telegram-test|telegram-schedule"
+        )
         sys.exit(1)
     cmd = sys.argv[1]
     args = sys.argv[2:]
@@ -370,6 +430,8 @@ def main() -> None:
         cmd_push(args)
     elif cmd == "publish":
         cmd_publish()
+    elif cmd == "ui-link":
+        cmd_ui_link()
     elif cmd == "lists":
         cmd_lists()
     elif cmd == "logout":
@@ -382,6 +444,8 @@ def main() -> None:
         cmd_telegram_setup()
     elif cmd == "telegram-test":
         cmd_telegram_test()
+    elif cmd == "telegram-schedule":
+        cmd_telegram_schedule(args)
     elif cmd == "send":
         cmd_send(args)
     else:

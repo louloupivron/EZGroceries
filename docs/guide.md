@@ -1,49 +1,34 @@
 # Guide pas à pas — Comida / Migros
 
-Automatiser les courses Migros Online depuis des exports **Kookd**, avec workflow **promo-first** (promos auto, favoris, push).
+Automatiser les courses Migros Online depuis des exports **Kookd** (matching favoris + promos en ligne, puis push).
 
-**Résumé :** Liste promo Migros → `promos` → Kookd (recettes) → `week` → push Migros.
+**Résumé :** Export Kookd → `week` (validation) → push vers **les Avengers** sur Migros.
 
 ---
 
-## Workflow hebdomadaire (promo → Kookd → courses)
+## Workflow hebdomadaire (Kookd → validation → push)
 
-### Phase A — Ingrédients promo pour Kookd
-
-1. Constituer une liste Migros avec les promos de la semaine (ex. **S1**).
-2. Exporter les ingrédients filtrés (format liste simple) :
-
-```bash
-uv run python main.py promos --list S1
-# Partager dans le topic Comida du groupe Telegram (coloc) :
-uv run python main.py promos --list S1 --telegram
-# ou : uv run python main.py promos S1 -o exports/promos-kookd.txt
-```
-
-3. Copier-coller le fichier généré dans **Kookd** pour proposer des recettes.
-4. Choisir les recettes de la semaine dans Kookd.
-
-**Filtres :** par défaut désactivés pour une liste curatée (`MIGROS_PROMOS_NO_FILTER=true`). Sinon : fruits, pain, yaourts, etc. — voir `promo-filter.txt`. Chaque `promos` affiche le détail API (inclus/exclus).
-
-### Phase B — Compléter les courses (Comida)
-
-1. Exporter les recettes Kookd → `exports/semaine.txt`
-2. Lancer le workflow courses :
+1. Planifier la semaine dans **Kookd** (portions **8** dans l’app).
+2. Exporter les recettes → `exports/semaine.txt` (ou `semaine-s3.txt`, etc.).
+3. Lancer l’analyse Comida :
 
 ```bash
 uv run python main.py week exports/semaine.txt
 ```
 
-Les ingrédients déjà sur la liste Migros cible (ex. **S1** dans `.env`) sont résolus en priorité, avant la recherche dans toutes les promos.
+Comida parse l’export, applique le garde-manger, ajoute `courses-hebdo.txt`, puis résout chaque ingrédient (mapping, favoris, promos Migros en ligne, recherche).
 
-3. Ajouter les favoris manquants sur Migros si besoin, puis pousser vers le panier.
-4. Pousser vers Migros et checkout sur migros.ch.
+4. Compléter les favoris manquants sur [Mes produits](https://www.migros.ch/fr/my-products), confirmer les quantités estimées si besoin.
+5. Pousser vers la liste **les Avengers** (`validate.py push` ou bouton dans l’interface).
+6. Checkout sur migros.ch.
+
+Vous pouvez toujours remplir **les Avengers** avec des promos du jeudi à la main ; il n’y a plus d’export « liste Migros → Kookd ».
 
 ---
 
 ## Telegram (topic Comida — coloc)
 
-Partager la liste promo dans le groupe Telegram (ex. **Betty's coloc**, topic **Comida**).
+Rappels hebdo et lien interface dans le topic **Comida** (voir planification ci-dessous).
 
 **Guide détaillé (setup, dépannage, checklist) :** [telegram-setup.md](telegram-setup.md)
 
@@ -58,8 +43,7 @@ Partager la liste promo dans le groupe Telegram (ex. **Betty's coloc**, topic **
 ### Utilisation
 
 ```bash
-uv run python main.py promos --list S1 --telegram
-uv run python validate.py send exports/promos-s1.txt
+uv run python validate.py telegram-test
 ```
 
 Variables optionnelles : `TELEGRAM_AUTO_SEND`, `TELEGRAM_SEND_ON_PUSH` (voir [telegram-setup.md](telegram-setup.md)).
@@ -210,9 +194,36 @@ uv run python main.py ui
 - Calcule les **quantités panier** (paquets Migros selon besoin recette)
 - Affiche une **estimation budget** et l’écart au minimum livraison
 - Signale les ingrédients **sans favori ni promo** → à ajouter sur [migros.ch/fr/my-products](https://www.migros.ch/fr/my-products)
-- Ouvre l’interface sur http://127.0.0.1:8765
+- Ouvre l’interface sur http://127.0.0.1:8765 (voir **accès mobile** ci-dessous)
 
 Durée typique : ~20 s avec cache promos, ~45 s au premier scan.
+
+### Accès mobile (Tailscale)
+
+Workflow recommandé : **Mac allumé** + `uv run python main.py ui` (ou `week` qui ouvre l’UI).
+
+| Réseau | URL |
+|--------|-----|
+| Même Wi‑Fi | `http://<ip-mac>:8765` (affichée au démarrage) |
+| **Autre réseau** (4G, bureau…) | `http://<ip-tailscale>:8765` |
+
+**Setup (une fois) :**
+
+1. Installer [Tailscale](https://tailscale.com/download) sur le **Mac** et le **téléphone** (même compte).
+2. Vérifier que les deux appareils sont connectés (`tailscale status` sur le Mac).
+3. Lancer l’UI :
+   ```bash
+   uv run python main.py ui
+   ```
+4. Le terminal affiche `★ Tailscale (autre réseau) : http://100.x.x.x:8765` — ouvrir cette URL sur le téléphone.
+
+**Raccourci :** le même lien est envoyé automatiquement dans le **topic Comida** sur Telegram (`TELEGRAM_SEND_UI_LINK=true` par défaut). Renvoi manuel : `uv run python validate.py ui-link`.
+
+**Prérequis :** `COMIDA_UI_HOST=0.0.0.0` dans `.env` (défaut). Le Mac doit rester allumé et connecté à Tailscale pendant la validation.
+
+Si la connexion échoue : Réglages Système → Réseau → Pare-feu → autoriser les connexions entrantes pour Python.
+
+Alternative lecture seule sans Mac : `uv run python validate.py publish` + GitHub Pages (`docs/index.html`).
 
 ### Alternative : `prepare` (CLI / Cursor)
 
@@ -325,8 +336,7 @@ Le checkout n’est **jamais** automatisé (sécurité / paiement).
 
 | Commande | Usage |
 |----------|--------|
-| `uv run python main.py promos --list S1 --telegram` | Export promo + partage topic Comida |
-| `uv run python main.py week <fichier(s)>` | **Workflow unifié** : analyse + favoris + interface |
+| `uv run python main.py week <fichier(s)>` | **Workflow unifié** : analyse Kookd + favoris + interface |
 | `uv run python main.py week … --portions 4` | Adapter les quantités (base Kookd : 8) |
 | `uv run python main.py week … --refresh-promos` | Forcer le scan promos (ignore le cache) |
 | `uv run python main.py ui` | Rouvrir l’interface sur la session en cours |
@@ -407,24 +417,21 @@ Vérifier les numéros d’option ; ne pas choisir M-Budget. Filtrage à amélio
 ## Workflow type (dimanche)
 
 ```bash
-# 1. Export promo → Kookd (choisir recettes)
-uv run python main.py promos --list S1
+# 1. Export Kookd → exports/semaine.txt
 
-# 2. Export Kookd → exports/semaine.txt
-
-# 3. Analyse (promos + favoris auto, cache promos)
+# 2. Analyse (favoris + promos auto, cache promos)
 uv run python main.py week exports/semaine.txt
 
-# 4. Ajouter les favoris manquants sur migros.ch/fr/my-products si besoin
+# 3. Ajouter les favoris manquants sur migros.ch/fr/my-products si besoin
 uv run python validate.py refresh
 
-# 5. Vérifier le panier et le budget
+# 4. Vérifier le panier et le budget
 uv run python validate.py basket
 
-# 6. Pousser depuis l’interface ou :
+# 5. Pousser depuis l’interface ou :
 uv run python validate.py push
 
-# 7. Checkout sur migros.ch
+# 6. Checkout sur migros.ch
 ```
 
 ---

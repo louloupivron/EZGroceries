@@ -5,7 +5,9 @@ riz 2 kg
 lentilles 500 g
 oeufs 
 eau 
-farine 
+pâtes
+poivre
+paprika
 sucre 
 bouillon de légumes/viande
 levure 
@@ -13,6 +15,10 @@ jus de citron
 polenta
 sauce soja
 origan séché 
+lait de coco
+curry
+fajitas
+épices à fajitas
 
 # Toujours acheter (+), même si un article garde-manger correspond
 + riz à sushi

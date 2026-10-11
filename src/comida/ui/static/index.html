@@ -57,6 +57,17 @@
       justify-content: center;
     }
     header .meta { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
+    .access-banner {
+      margin-top: .5rem;
+      padding: .5rem .75rem;
+      background: #e8f4fd;
+      border: 1px solid #b6d9f2;
+      border-radius: 8px;
+      font-size: .75rem;
+      line-height: 1.4;
+    }
+    .access-banner strong { color: #0c4a6e; }
+    .access-banner a { color: var(--accent); font-weight: 600; word-break: break-all; }
 
     .stepper {
       display: flex;
@@ -461,6 +472,7 @@
     <nav class="stepper" id="stepper" aria-label="Étapes du workflow"></nav>
     <div class="progress-bar"><div class="fill" id="progress" style="width:0%"></div></div>
     <div class="stats" id="stats"></div>
+    <div class="access-banner" id="accessBanner" hidden></div>
   </header>
 
   <main id="app">
@@ -496,7 +508,7 @@
         <label for="setListUrl">Lien liste Migros</label>
         <input type="url" id="setListUrl" placeholder="https://www.migros.ch/list/xxxxx" inputmode="url">
         <p style="font-size:.75rem;color:var(--muted);margin-top:.25rem">
-          Lien partagé de votre liste S1 (slug ≠ id API). Visible après push.
+          Lien partagé de la liste les Avengers (slug ≠ id API). Visible après push.
         </p>
         <label for="setWeekly">courses-hebdo.txt</label>
         <textarea id="setWeekly" spellcheck="false"></textarea>
@@ -516,34 +528,28 @@
     const hintCache = new Map();
 
     const STEP_GUIDES = {
-      promos: {
-        title: 'Étape 1 — Promos S1',
-        body: 'Exporte les promos de votre liste Migros S1 vers exports/promos-s1.txt (~1 min).',
-        cmd: 'uv run python main.py promos --list S1',
-        job: 'promos',
-      },
       kookd: {
-        title: 'Étape 2 — Export Kookd',
-        body: 'Dans Kookd, exportez la semaine en .txt et placez le fichier dans exports/.',
+        title: 'Étape 1 — Export Kookd',
+        body: 'Dans Kookd, exportez la semaine en .txt et placez le fichier dans exports/ (ex. semaine.txt).',
         cmd: 'exports/semaine.txt',
         action: 'kookd',
       },
       week: {
-        title: 'Étape 3 — Analyse semaine',
-        body: 'Analyse recettes + garde-manger + courses hebdo, puis ouvre la validation.',
-        cmd: 'uv run python main.py week exports/semaine.txt --pantry',
+        title: 'Étape 2 — Analyse semaine',
+        body: 'Analyse l’export Kookd, le garde-manger et les courses hebdo, puis ouvre la validation.',
+        cmd: 'uv run python main.py week exports/semaine.txt',
         job: 'week',
       },
       validate: {
-        title: 'Étape 4 — Favoris & validation',
-        body: 'Validez les promos, ajoutez les favoris manquants, corrigez les recherches.',
+        title: 'Étape 3 — Validation',
+        body: 'Ajoutez les favoris manquants, confirmez les quantités estimées, corrigez si besoin.',
       },
       push: {
-        title: 'Étape 5 — Push Migros',
-        body: 'Envoyez les produits validés vers votre liste S1 sur Migros Online.',
+        title: 'Étape 4 — Push Migros',
+        body: 'Envoyez les produits validés vers la liste les Avengers. Une quantité en revue ne part pas tant qu’elle n’est pas confirmée.',
       },
       checkout: {
-        title: 'Étape 6 — Checkout',
+        title: 'Étape 5 — Checkout',
         body: 'Ouvrez Migros pour choisir le créneau de livraison et payer.',
       },
     };
@@ -579,6 +585,22 @@
       return html;
     }
 
+    function renderAccessBanner(urls) {
+      const el = document.getElementById('accessBanner');
+      if (!el || !urls?.length) {
+        if (el) el.hidden = true;
+        return;
+      }
+      const mobile = urls.find(u => u.preferred_mobile) || urls.find(u => u.label === 'lan');
+      if (!mobile) {
+        el.hidden = true;
+        return;
+      }
+      const label = mobile.label === 'tailscale' ? 'Téléphone (Tailscale)' : 'Téléphone (Wi‑Fi)';
+      el.innerHTML = `<strong>${esc(label)}</strong> — <a href="${esc(mobile.url)}">${esc(mobile.url)}</a>`;
+      el.hidden = false;
+    }
+
     function renderStepper(workflow) {
       if (!workflow?.steps) return '';
       return workflow.steps.map(step => `
@@ -590,13 +612,13 @@
     }
 
     function renderGuide(workflow) {
-      const stepId = workflow?.current_step || 'promos';
-      const guide = STEP_GUIDES[stepId] || STEP_GUIDES.promos;
+      const stepId = workflow?.current_step || 'kookd';
+      const guide = STEP_GUIDES[stepId] || STEP_GUIDES.kookd;
       const jobRunning = session?.job?.status === 'running';
       let html = `<div class="guide-card"><h3>${esc(guide.title)}</h3><p>${esc(guide.body)}</p>`;
       if (guide.cmd) html += `<code>${esc(guide.cmd)}</code>`;
       if (guide.job) {
-        const label = guide.job === 'promos' ? 'Lancer export promos' : 'Lancer analyse';
+        const label = 'Lancer analyse';
         const extra = guide.job === 'week'
           ? `<label class="checkbox-row"><input type="checkbox" id="refreshPromos"> Rafraîchir cache promos</label>`
           : '';
@@ -618,7 +640,7 @@
     function renderJobBanner(job) {
       if (!job) return '';
       const cls = job.status || 'running';
-      const title = job.type === 'promos' ? 'Export promos' : job.type === 'week' ? 'Analyse semaine' : job.type;
+      const title = job.type === 'week' ? 'Analyse semaine' : job.type;
       const logs = (job.logs || []).map(l => `<div>${esc(l)}</div>`).join('');
       const statusLabel = cls === 'running' ? 'En cours…' : cls === 'done' ? 'Terminé' : 'Erreur';
       return `
@@ -676,20 +698,21 @@
           </div>
           <div class="actions">
             <a class="btn-outline btn-link" href="${url}" target="_blank" rel="noopener">Mes produits</a>
-            <button class="btn-secondary" onclick="loadFavoriteHints('${key}', '${query}')">Actualiser</button>
+            <button class="btn-secondary" onclick="loadFavoriteHints('${key}', '${query}', true)">Actualiser</button>
           </div>
         </div>
       `;
     }
 
-    async function loadFavoriteHints(key, query) {
+    async function loadFavoriteHints(key, query, force) {
       const el = document.getElementById('hints-' + key);
       if (!el) return;
       const cacheKey = key + '|' + query;
-      if (hintCache.has(cacheKey)) {
+      if (!force && hintCache.has(cacheKey)) {
         el.innerHTML = hintCache.get(cacheKey);
         return;
       }
+      if (force) hintCache.delete(cacheKey);
       el.innerHTML = '<div class="hint-loading">Recherche…</div>';
       try {
         const data = await fetch('/api/favorite-hints?q=' + encodeURIComponent(query)).then(r => r.json());
@@ -761,16 +784,28 @@
 
     function renderResolved(item) {
       const promo = item.on_promotion ? ' <span class="badge badge-promo">Promo</span>' : '';
-      const qty = item.quantity_parsed > 1 ? ` × ${item.quantity_parsed}` : '';
+      const revue = item.quantity_confidence === 'revue';
+      const qty = item.quantity_parsed > 1 || revue ? ` × ${item.quantity_parsed}` : '';
       const price = item.price_chf != null ? ` · ${item.price_chf} CHF` : '';
+      const note = revue
+        ? `<div class="product">Quantité à confirmer${item.quantity_note ? ' — ' + esc(item.quantity_note) : ''}</div>`
+        : '';
+      const confirm = revue
+        ? `<button class="btn-primary" style="font-size:.7rem;padding:.2rem .45rem"
+            onclick="confirmQty('${esc(item.key)}')">Confirmer</button>`
+        : '';
       return `
         <div class="resolved-item">
           <div>
             <strong>${esc(item.ingredient_name)}</strong>${promo}
             <div class="product">${esc(item.name)}${qty}${price}</div>
+            ${note}
           </div>
-          <button class="btn-secondary" style="font-size:.7rem;padding:.2rem .45rem"
-            onclick="reopen('${esc(item.key)}')">Modifier</button>
+          <div style="display:flex;gap:.35rem">
+            ${confirm}
+            <button class="btn-secondary" style="font-size:.7rem;padding:.2rem .45rem"
+              onclick="reopen('${esc(item.key)}')">Modifier</button>
+          </div>
         </div>
       `;
     }
@@ -809,11 +844,11 @@
         btn.disabled = !s.resolved;
         return;
       }
-      if (step === 'promos') {
-        const running = session?.job?.status === 'running';
-        btn.textContent = 'Export promos';
-        btn.onclick = () => startJob('promos');
-        btn.disabled = running;
+      if (step === 'kookd') {
+        const done = workflow?.ui_state?.kookd_done;
+        btn.textContent = done ? 'Export Kookd fait' : 'J’ai exporté Kookd';
+        btn.onclick = () => markKookdDone();
+        btn.disabled = false;
         return;
       }
       if (step === 'week') {
@@ -825,7 +860,7 @@
       }
       if (step === 'validate') {
         btn.textContent = s.needs_favorite ? 'Recharger favoris' : 'Actualiser';
-        btn.onclick = () => s.needs_favorite ? refreshFavorites() : refresh();
+        btn.onclick = () => refreshFavorites();
         btn.disabled = false;
         return;
       }
@@ -840,13 +875,15 @@
       const workflow = session.workflow || {};
 
       document.getElementById('recipe').textContent = session.recipe || 'Workflow courses Migros';
+      renderAccessBanner(session.access_urls);
       document.getElementById('stepper').innerHTML = renderStepper(workflow);
       document.getElementById('progress').style.width =
         s.total ? `${Math.round((s.resolved / s.total) * 100)}%` : '0%';
       document.getElementById('stats').innerHTML =
         `<span>${s.resolved || 0} validé(s)</span>` +
         `<span>${(session.promos_resolved || []).length} promo(s)</span>` +
-        `<span>${s.needs_favorite || 0} favori(s)</span>`;
+        `<span>${s.needs_favorite || 0} favori(s)</span>` +
+        (s.quantity_review ? `<span>${s.quantity_review} quantité(s)</span>` : '');
 
       updateFooter(workflow);
 
@@ -893,6 +930,10 @@
         html += '<section><h2>Recherche manuelle</h2>';
         html += session.manual.map(renderManual).join('');
         html += '</section>';
+      }
+
+      if (session.resolved?.some(item => item.quantity_confidence === 'revue')) {
+        html += '<div class="warn-banner">Des quantités sont estimées. Confirmez-les avant le push : elles ne partent pas tant qu’elles sont en revue.</div>';
       }
 
       if (session.resolved?.length) {
@@ -946,7 +987,7 @@
         }
         const data = await api('/api/jobs', body);
         session.job = data.job;
-        toast(type === 'promos' ? 'Export promos démarré' : 'Analyse démarrée');
+        toast('Analyse démarrée');
         render();
         pollJob();
       } catch (e) { toast(e.message); }
@@ -962,7 +1003,7 @@
             clearInterval(jobPollTimer);
             jobPollTimer = null;
             if (data.job?.status === 'done') {
-              toast(data.job.type === 'promos' ? 'Promos exportées' : 'Analyse terminée');
+              toast('Analyse terminée');
               await refresh();
             } else if (data.job?.status === 'error') {
               toast('Erreur : ' + (data.job.error || 'job'));
@@ -1068,6 +1109,14 @@
       } catch (e) { toast(e.message); }
     }
 
+    async function confirmQty(key) {
+      try {
+        const data = await api('/api/confirm-quantity', { key });
+        toast(data.message || 'Quantité confirmée');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
     async function reopen(key) {
       try {
         await api('/api/reopen', { key });
@@ -1088,7 +1137,11 @@
         const data = await api('/api/push', { force });
         session.workflow = data.workflow;
         if (data.ui_state) session.workflow.ui_state = data.ui_state;
-        toast(`${data.result?.results?.length || 0} produit(s) ajouté(s)`);
+        const skipped = (data.skipped_quantities || []).length;
+        toast(
+          `${data.result?.results?.length || 0} produit(s) mis à jour`
+          + (skipped ? ` · ${skipped} quantité(s) laissée(s) de côté` : '')
+        );
         await refresh();
       } catch (e) { toast(e.message); }
     }

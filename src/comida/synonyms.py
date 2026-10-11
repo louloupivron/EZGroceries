@@ -11,13 +11,24 @@ EXTRA_TERMS: dict[str, list[str]] = {
     "capres": ["kapern"],
     "oignon": ["zwiebel", "zwiebeln"],
     "oignons": ["zwiebel", "zwiebeln"],
+    "ail": ["knoblauch", "knoblauchzehe", "garlic"],
+    "gousses": ["knoblauch", "knoblauchzehe"],
     "tomate": ["tomaten", "passata", "tomatensauce"],
+    "cerises": ["datteltomaten", "cherrytomaten", "cocktailtomaten"],
+    "cerise": ["dattel", "cherry", "cocktail"],
+    "pulpe": ["passata", "tomatenpüree", "tomatenpueree", "gehackte tomaten"],
     "carotte": ["karotte", "karotten", "migros bio"],
     "carottes": ["karotte", "karotten", "migros bio"],
     "toast": ["toast", "toastbrot"],
     "banane": ["banane", "bananen", "platanos"],
     "bananes": ["banane", "bananen", "platanos"],
-    "riz": ["reis", "reismilch", "reisdrink"],
+    "riz": ["reis"],
+    "oeufs": ["eier", "ei"],
+    "oeuf": ["eier", "ei"],
+    "cacahu": ["erdnuss", "erdnussbutter"],
+    "terre": ["kartoffel", "kartoffeln"],
+    "poivron": ["peperoni", "paprika"],
+    "poivrons": ["peperoni", "paprika"],
     "soja": ["soja", "sojasauce"],
     "origan": ["oregano", "origano", "oregan"],
     "concombre": ["gurke", "gurken"],
@@ -29,12 +40,15 @@ EXTRA_TERMS: dict[str, list[str]] = {
     "nori": ["nori"],
     "sésame": ["sesam", "sesame"],
     "avocat": ["avocado"],
+    "farine": ["weissmehl", "mehl", "weizenmehl", "frione"],
+    "blé": ["weizen", "weissmehl"],
 }
 
 
 def significant_tokens(name: str) -> list[str]:
     stop = {"de", "du", "la", "le", "les", "d", "et", "en", "feuilles", "frais", "fraîche", "pièce"}
-    tokens = re.findall(r"[a-zàâäéèêëïîôùûüç]+", name.lower())
+    folded = name.lower().replace("œ", "oe").replace("æ", "ae")
+    tokens = re.findall(r"[a-zàâäéèêëïîôùûüç]+", folded)
     return [t for t in tokens if len(t) > 2 and t not in stop]
 
 
@@ -50,6 +64,10 @@ def search_terms(ingredient_name: str) -> list[str]:
         for key, extras in EXTRA_TERMS.items():
             if token == key or key in token:
                 terms.extend(extras)
+    low_name = ingredient_name.lower()
+    if "lait de riz" in low_name or "boisson de riz" in low_name or "boisson au riz" in low_name:
+        terms.extend(["reisdrink", "reismilch", "rice drink"])
+
     # unique, preserve order
     seen: set[str] = set()
     out: list[str] = []

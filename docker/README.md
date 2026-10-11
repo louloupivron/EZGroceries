@@ -1,4 +1,6 @@
-# Comida sur Docker (NAS ou serveur)
+# Comida sur Docker (optionnel — NAS ou serveur)
+
+> **Workflow actuel :** Mac local + Tailscale pour le téléphone. Docker n’est pas nécessaire.
 
 UI Comida accessible 24/7 depuis le téléphone (même Wi‑Fi ou via Tailscale).
 
@@ -20,7 +22,7 @@ Interface : **http://\<ip-nas\>:8765** (ex. `http://192.168.1.50:8765`)
 | Chemin hôte | Rôle |
 |-------------|------|
 | `./data` | Session validation, cache promos, session Migros |
-| `./exports` | `semaine.txt`, `promos-s1.txt` |
+| `./exports` | Exports Kookd (`semaine.txt`, …) |
 | `./docs` | Page mobile (`validate.py publish`) |
 | `./.env` | Identifiants Migros |
 | `garde-manger.txt`, `courses-hebdo.txt`, `mappings.json` | Config |

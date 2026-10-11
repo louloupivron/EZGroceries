@@ -111,18 +111,95 @@ uv run python validate.py send exports/promos-s1.txt
 
 ---
 
-## 6. Utilisation au quotidien
+## 6. Messages planifiés (workflow hebdo)
+
+Rappels **courses Comida** via le topic Comida :
+
+| Quand | Commande | Contenu |
+|-------|----------|---------|
+| **Jeudi matin** | `validate.py telegram-schedule thu-am` | Rappel de la liste **les Avengers** + lien Migros |
+| **Jeudi soir** | `validate.py telegram-schedule thu-pm` | Rappel si liste vide, sinon contenu actuel de la liste |
+| **Vendredi matin** | `validate.py telegram-schedule fri-am` | Export Kookd + commande `main.py week` + lien interface |
+
+La liste est fixe : **les Avengers** (`MIGROS_SHOPPING_LIST_NAME`, ou `COMIDA_WEEK_LIST_NAME` pour la forcer). Il n’y a plus une liste `S3`, `S4`… par semaine.
+
+Chaque étape n’est envoyée **qu’une fois par semaine** (sauf `--force`).
+
+### macOS — launchd
+
+Les agents launchd ne peuvent pas lire un script directement sous `~/Desktop` (protection macOS en arrière-plan). Utiliser un **wrapper** dans `~/bin` :
+
+`~/bin/comida-telegram-schedule.sh` :
 
 ```bash
-# Export promo Migros + envoi Telegram
-uv run python main.py promos --list S1 --telegram
+#!/bin/zsh
+set -euo pipefail
+ROOT="/chemin/vers/Migros"
+cd "$ROOT"
+exec /chemin/vers/.local/bin/uv run python validate.py telegram-schedule "$@"
+```
+
+```bash
+chmod +x ~/bin/comida-telegram-schedule.sh
+```
+
+Créer `~/Library/LaunchAgents/com.comida.telegram.thu-am.plist` (appeler **zsh + wrapper**, pas le `.sh` du projet) :
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.comida.telegram.thu-am</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>/Users/VOTRE_USER/bin/comida-telegram-schedule.sh</string>
+    <string>thu-am</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>4</integer>
+    <key>Hour</key><integer>8</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+  <key>WorkingDirectory</key><string>/Users/VOTRE_USER</string>
+  <key>StandardOutPath</key><string>/Users/VOTRE_USER/Library/Logs/comida/telegram-thu-am.log</string>
+  <key>StandardErrorPath</key><string>/Users/VOTRE_USER/Library/Logs/comida/telegram-thu-am.log</string>
+</dict>
+</plist>
+```
+
+Dupliquer pour `thu-pm` (jeudi 20h, `Weekday` 4) et `fri-am` (vendredi 8h, `Weekday` 5). Puis :
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.comida.telegram.thu-am.plist 2>/dev/null
+launchctl load   ~/Library/LaunchAgents/com.comida.telegram.thu-am.plist
+```
+
+Test manuel :
+
+```bash
+~/bin/comida-telegram-schedule.sh thu-am --force
+```
+
+Logs : `~/Library/Logs/comida/telegram-*.log`
+
+---
+
+## 7. Utilisation au quotidien
+
+```bash
+# Test ou rappel manuel
+uv run python validate.py telegram-test
+uv run python validate.py telegram-schedule fri-am --force
 ```
 
 Options `.env` :
 
 ```env
-TELEGRAM_AUTO_SEND=true      # envoi auto après chaque promos
 TELEGRAM_SEND_ON_PUSH=true   # résumé panier + lien checkout après push
+TELEGRAM_SEND_UI_LINK=true   # lien Tailscale / Wi‑Fi au démarrage de l'UI
 ```
 
 ---
@@ -157,6 +234,16 @@ Compléter `.env` puis relancer `telegram-test`.
 
 BotFather → `/mybots` → **Revoke** → mettre le nouveau token dans `.env`.
 
+### Les messages planifiés ne partent pas (launchd)
+
+Vérifier `~/Library/Logs/comida/telegram-*.log`. Erreur fréquente :
+
+```
+/bin/zsh: can't open input file: .../Desktop/.../telegram-schedule.sh
+```
+
+→ launchd ne peut pas exécuter un script sous `~/Desktop`. Utiliser le wrapper `~/bin/comida-telegram-schedule.sh` (voir section 6).
+
 ---
 
 ## Référence technique
@@ -173,8 +260,10 @@ Commandes utiles :
 |----------|------|
 | `validate.py telegram-setup` | Découvrir chat_id / topic_id |
 | `validate.py telegram-test` | Message de test dans le topic |
-| `validate.py send <fichier>` | Envoyer un export manuellement |
-| `main.py promos … --telegram` | Export promo + envoi |
+| `validate.py telegram-schedule thu-am` | Message jeudi matin (nouvelle liste) |
+| `validate.py telegram-schedule thu-pm` | Message jeudi soir (rappel / résumé) |
+| `validate.py telegram-schedule fri-am` | Message vendredi matin (Kookd + `main.py week`) |
+| `validate.py send <fichier>` | Envoyer un fichier texte manuellement |
 
 Code : `src/comida/telegram.py`
 
@@ -188,4 +277,4 @@ Code : `src/comida/telegram.py`
 - [ ] Message `@Bot test` dans le topic **Comida**
 - [ ] `validate.py telegram-setup` → ids copiés dans `.env`
 - [ ] `validate.py telegram-test` → message visible dans Comida
-- [ ] `main.py promos --list S1 --telegram` → liste reçue sur le téléphone
+- [ ] `validate.py telegram-schedule fri-am --force` → rappel export Kookd reçu

@@ -1,4 +1,4 @@
-"""Background jobs for promos export and week analysis."""
+"""Background jobs for week analysis."""
 
 from __future__ import annotations
 
@@ -9,7 +9,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from comida.basket import default_list_name
-from comida.kookd_export import promos_no_filter_from_env, run_promos_export
 from comida.ui.settings import EXPORTS_DIR, get_preferences
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -48,8 +47,8 @@ class JobManager:
 
     def start(self, job_type: str, **options) -> dict:
         job_type = job_type.strip().lower()
-        if job_type not in ("promos", "week"):
-            raise ValueError(f"Type de job inconnu : {job_type}")
+        if job_type != "week":
+            raise ValueError(f"Type de job inconnu : {job_type} (seul « week » est supporté)")
 
         with self._lock:
             if self._current_id:
@@ -84,7 +83,6 @@ class JobManager:
         with self._lock:
             jid = job_id or self._current_id
             if not jid:
-                # last finished job
                 if not self._jobs:
                     return None
                 jid = max(self._jobs, key=lambda k: self._jobs[k].get("updated_at", ""))
@@ -100,32 +98,13 @@ class JobManager:
 
     def _run(self, job_id: str, job_type: str, options: dict) -> None:
         try:
-            if job_type == "promos":
-                result = self._run_promos(job_id, options)
-            else:
-                result = self._run_week(job_id, options)
+            result = self._run_week(job_id, options)
             self._append_log(job_id, "Terminé.")
             self._set_status(job_id, "done", result=result)
         except Exception as e:
             self._append_log(job_id, f"Erreur : {e}")
             self._append_log(job_id, traceback.format_exc().splitlines()[-1])
             self._set_status(job_id, "error", error=str(e))
-
-    def _run_promos(self, job_id: str, options: dict) -> dict:
-        prefs = get_preferences()
-        list_name = options.get("list_name") or prefs["list_name"] or default_list_name()
-        self._append_log(job_id, f"Export promos — liste {list_name}…")
-        apply_filters = None if options.get("no_filter") is None else not options["no_filter"]
-        if apply_filters is None:
-            apply_filters = not promos_no_filter_from_env()
-
-        out = run_promos_export(
-            list_name,
-            apply_pantry=bool(options.get("apply_pantry")),
-            apply_filters=apply_filters,
-        )
-        self._append_log(job_id, f"Fichier : {out.name}")
-        return {"output": str(out.relative_to(ROOT)), "list_name": list_name}
 
     def _run_week(self, job_id: str, options: dict) -> dict:
         prefs = get_preferences()
@@ -138,7 +117,8 @@ class JobManager:
         base_portions = int(options.get("base_portions", prefs["base_portions"]))
         refresh_promos = bool(options.get("refresh_promos", False))
 
-        self._append_log(job_id, f"Analyse {recipe_path.name} ({portions} portions)…")
+        list_name = options.get("list_name") or prefs["list_name"] or default_list_name()
+        self._append_log(job_id, f"Analyse {recipe_path.name} ({portions} portions, liste {list_name})…")
         if refresh_promos:
             self._append_log(job_id, "Rafraîchissement du cache promos…")
 
@@ -150,6 +130,7 @@ class JobManager:
             portions=portions,
             base_portions=base_portions,
             refresh_promos=refresh_promos,
+            list_name=list_name,
         )
 
         resolved = len(session.get("resolved", []))

@@ -114,6 +114,26 @@ def _amount_in_base(amount: Amount) -> float | None:
     return amount.to_grams_or_ml()
 
 
+def pieces_per_retail_pack(package: str | None) -> float | None:
+    """
+    Pieces in one Migros retail unit when sold as count × weight (e.g. '2 × 140 g' → 2).
+    """
+    if not package:
+        return None
+    text = _normalize_package_text(str(package))
+    multipack = re.match(
+        r"^(?P<count>\d+)\s*[x×]\s*(?P<qty>\d+(?:[.,]\d+)?)\s*(?P<unit>[a-zàâäéèêëïîôùûüç.]+)$",
+        text,
+    )
+    if multipack:
+        unit = normalize_unit(multipack.group("unit"))
+        if unit in ("g", "kg", "ml", "cl", "l"):
+            return float(multipack.group("count").replace(",", "."))
+    if re.match(r"^1\s*(stück|stuck|stk|piece|pièce|pieces|pièces)$", text):
+        return 1.0
+    return None
+
+
 def parse_package_size(package: str | None) -> Amount | None:
     """Parse Migros offer quantity, e.g. '200 g', '2 × 360 g', '170–210 g'."""
     if not package:
@@ -162,34 +182,73 @@ def _compatible_units(needed: Amount, package: Amount) -> bool:
     return False
 
 
+@dataclass(frozen=True)
+class BasketQuantity:
+    """Pack count plus whether it is safe to push without a look."""
+
+    packs: int
+    confidence: str  # "ok" | "revue"
+    note: str = ""
+
+    @property
+    def needs_review(self) -> bool:
+        return self.confidence != "ok"
+
+
 def compute_basket_quantity(
     quantity_str: str | None,
     package: str | None = None,
     *,
     default: int = 1,
-) -> int:
-    """Return number of Migros packs to add for a recipe line."""
+) -> BasketQuantity:
+    """Return Migros pack count. Uncertain conversions stay visible as revue."""
     needed = parse_recipe_quantity(quantity_str)
     if needed is None:
-        return default
+        return BasketQuantity(default, "revue", "quantité recette illisible")
 
     pack = parse_package_size(package)
     if pack is None or not _compatible_units(needed, pack):
-        return default
+        return BasketQuantity(default, "revue", "format Migros illisible")
 
-    needed_base = needed.to_grams_or_ml()
-    pack_base = pack.to_grams_or_ml()
-    if needed_base is None or pack_base is None or pack_base <= 0:
-        return default
+    if needed.unit in ("g", "kg") and pack.unit in ("g", "kg"):
+        needed_g = needed.to_grams_or_ml()
+        pack_g = pack.to_grams_or_ml()
+        if needed_g is None or pack_g is None or pack_g <= 0:
+            return BasketQuantity(default, "revue", "format Migros illisible")
+        return BasketQuantity(max(1, math.ceil(needed_g / pack_g)), "ok")
+
+    if needed.unit in ("ml", "cl", "l") and pack.unit in ("ml", "cl", "l"):
+        needed_ml = needed.to_grams_or_ml()
+        pack_ml = pack.to_grams_or_ml()
+        if needed_ml is None or pack_ml is None or pack_ml <= 0:
+            return BasketQuantity(default, "revue", "format Migros illisible")
+        return BasketQuantity(max(1, math.ceil(needed_ml / pack_ml)), "ok")
 
     if needed.unit == "piece" and pack.unit == "piece":
-        return max(1, math.ceil(needed.value / pack.value))
+        if pack.value <= 0:
+            return BasketQuantity(default, "revue", "format Migros illisible")
+        return BasketQuantity(max(1, math.ceil(needed.value / pack.value)), "ok")
 
-    # Recipe count (pièces, tranches) with a weight/volume pack → one retail unit.
-    if needed.unit == "piece" and pack.unit != "piece":
-        return default
+    if needed.unit == "piece":
+        per_pack = pieces_per_retail_pack(package)
+        if per_pack is not None and per_pack > 0:
+            return BasketQuantity(max(1, math.ceil(needed.value / per_pack)), "ok")
+        if pack.unit in ("g", "kg"):
+            pack_grams = pack.to_grams_or_ml()
+            if pack_grams is not None and 50 <= pack_grams <= 2000:
+                return BasketQuantity(max(1, math.ceil(needed.value)), "ok")
+            return BasketQuantity(default, "revue", "pièce contre un poids hors bande")
+        return BasketQuantity(default, "revue", "format Migros illisible")
 
-    return max(1, math.ceil(needed_base / pack_base))
+    # Recipe weight against a per-piece offer (mangue, avocat). 200 g is an estimate.
+    if pack.unit == "piece" and needed.unit in ("g", "kg"):
+        needed_g = needed.to_grams_or_ml()
+        if needed_g is None:
+            return BasketQuantity(default, "revue", "quantité recette illisible")
+        packs = max(1, math.ceil(needed_g / 200.0))
+        return BasketQuantity(packs, "revue", "estimation 200 g par pièce")
+
+    return BasketQuantity(default, "revue", "unités incompatibles")
 
 
 def format_amount(amount: Amount) -> str:

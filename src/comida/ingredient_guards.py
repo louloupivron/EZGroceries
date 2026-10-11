@@ -18,7 +18,13 @@ _RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = [
     (
         ("oignon", "oignons", "échalote"),
         ("zwiebel", "onion", "oignon", "échalote", "echalote"),
-        ("champignon", "pilz", "pilze", "champi"),
+        ("champignon", "pilz", "pilze", "champi", "knoblauch", "ail", "garlic"),
+    ),
+    (
+        ("ail", "gousse", "gousses", "knoblauch"),
+        ("knoblauch", "ail", "garlic", "knoblauchzehe"),
+        ("zwiebel", "onion", "oignon", "toast", "banane", "banana", "schinken", "ham",
+         "pizzateig", "pizza", "reis", "rice", "frione", "chocolat"),
     ),
     (
         ("champignon",),
@@ -47,6 +53,16 @@ _RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = [
         ("chimichurri", "ketchup", "mayonnaise", "mayo", "wein", "soja", "soy"),
     ),
     (
+        ("tomates cerises", "tomate cerise"),
+        ("dattel", "cherry", "cocktail", "cerise", "kirsche"),
+        ("passata", "pulpe", "püree", "puree", "tomatensauce", "karotte", "karotten"),
+    ),
+    (
+        ("pulpe de tomate", "pulpe tomate"),
+        ("passata", "pulpe", "püree", "puree", "tomatenpüree", "tomatenpueree", "gehackte"),
+        ("dattel", "cherry", "cocktail", "karotte", "karotten"),
+    ),
+    (
         ("carotte", "carottes"),
         ("karotte", "carotte", "carrot"),
         ("erbsen", "gartenerbsen", "pois", "peas", "sterilcat", "katzen", "snack",
@@ -64,8 +80,84 @@ _RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = [
     ),
     (
         ("lait de riz",),
-        ("reis", "rice", "reismilch", "reisdrink", "lait de riz", "boisson de riz"),
-        ("salat", "salad", "fromage", "käse", "kase"),
+        ("reisdrink", "reismilch", "lait de riz", "boisson de riz", "rice drink"),
+        ("sushi", "sushireis", "salat", "salad", "fromage", "käse", "kase", "erdnuss", "cacahu"),
+    ),
+    (
+        ("lait",),
+        ("milch", "vollmilch", "magermilch", "milch drink"),
+        ("reis", "reisdrink", "sushi", "sushireis", "kokos", "mandel", "hafer", "soja",
+         "schokolade", "chocolat", "lindt", "frey", "noxana", "milchreis", "noisettes"),
+    ),
+    (
+        ("beurre de cacahu", "cacahuète", "cacahuetes", "peanut"),
+        ("erdnuss", "erdnussbutter", "cacahu", "peanut"),
+        ("reis", "reisdrink", "reismilch", "rice", "drink", "milch"),
+    ),
+    (
+        ("beurre",),
+        ("butter", "vorzugsbutter", "beurre"),
+        ("erdnuss", "reisdrink", "reismilch", "cacahu", "peanut", "erdnu", "reis"),
+    ),
+    (
+        ("riz à sushi", "riz sushi", "sushi cuit"),
+        ("sushi", "sushireis", "sushi reis"),
+        ("reisdrink", "reismilch", "drink", "milch", "boisson"),
+    ),
+    (
+        ("mangue",),
+        ("mango", "mangue", "mangos"),
+        ("fanta", "cola", "soda", "limonade", "orange", "getränk", "getrank"),
+    ),
+    (
+        ("pois chiches", "pois chiche"),
+        ("kichererbs", "chickpea", "ceci", "pois chiche"),
+        ("sushi", "sushireis", "reisdrink", "reismilch"),
+    ),
+    (
+        ("roquette",),
+        ("rucola", "rukkola", "roquette", "rocket"),
+        ("karotte", "karotten", "carotte", "carrot"),
+    ),
+    (
+        ("pain brioch", "brioche"),
+        ("brioche", "brioche", "hefezopf", "zopf"),
+        ("wein", "wine", "kochwein", "rotwein", "weisswein"),
+    ),
+    (
+        ("tortilla",),
+        ("tortilla", "tortillas", "wrap"),
+        ("mehl", "weissmehl", "flour", "farine"),
+    ),
+    (
+        ("courgette",),
+        ("zucchetti", "zucchini", "courgette"),
+        ("tocchetti", "pasta", "nudel", "emilio"),
+    ),
+    (
+        ("oeuf", "oeufs", "ufs"),
+        ("eier", "egg", "eggs"),
+        ("butter", "vorzugsbutter", "beurre", "reis", "reisdrink", "toast", "banane", "banana"),
+    ),
+    (
+        ("citron vert", "lime"),
+        ("limette", "lime", "citron vert", "zitrone"),
+        ("kapern", "kaper", "caper", "cornichon"),
+    ),
+    (
+        ("pommes de terre", "pomme de terre"),
+        ("kartoffel", "kartoffeln", "potato"),
+        ("apfel", "äpfel", "apfels", "birne", "fruit"),
+    ),
+    (
+        ("poivron", "poivrons"),
+        ("peperoni", "paprika", "poivron", "bell pepper"),
+        ("tartinade", "spread", "dip", "sauce", "côté jardin", "cote jardin"),
+    ),
+    (
+        ("farine",),
+        ("mehl", "weissmehl", "weizenmehl", "farine", "flour"),
+        ("reisdrink", "reismilch", "chocolat", "frione", "schokolade", "reis", "rice"),
     ),
 ]
 
@@ -87,7 +179,7 @@ def _name_blob(product_name: str) -> str:
 
 
 def _rule_for(ingredient_name: str) -> tuple[tuple[str, ...], tuple[str, ...]] | None:
-    low = ingredient_name.lower()
+    low = ingredient_name.lower().replace("œ", "oe").replace("æ", "ae")
     for triggers, required, forbidden in _RULES:
         if any(t in low for t in triggers):
             return required, forbidden
@@ -113,7 +205,9 @@ def product_fits_ingredient(
 
     rule = _rule_for(ingredient_name)
     if not rule:
-        return True
+        from comida.identity import text_has_identity
+
+        return text_has_identity(ingredient_name, _display_name(product))
     required, forbidden = rule
     if any(f in blob for f in forbidden):
         return False
@@ -140,12 +234,10 @@ def product_name_fits_ingredient(ingredient_name: str, product_name: str) -> boo
     if any(m in blob for m in _SNACK_MARKERS) and "origan" in ingredient_name.lower():
         return False
     if not rule:
-        return True
+        from comida.identity import text_has_identity
+
+        return text_has_identity(ingredient_name, product_name)
     required, forbidden = rule
     if any(f in blob for f in forbidden):
         return False
-    from comida.synonyms import search_terms
-
-    return any(r in blob for r in required) or any(
-        t.lower() in blob for t in search_terms(ingredient_name) if len(t) >= 4
-    )
+    return any(r in blob for r in required)

@@ -96,6 +96,7 @@ def cmd_week(args: list[str]) -> None:
         portions=options["portions"],
         base_portions=options["base_portions"],
         refresh_promos=options["refresh_promos"],
+        list_name=options["list_name"],
     )
 
 
@@ -106,40 +107,17 @@ def cmd_ui(args: list[str]) -> None:
     run_ui(port=options["port"])
 
 
-def cmd_promos(args: list[str]) -> None:
-    from comida.kookd_export import run_promos_export
-    from comida.telegram import send_promos_export, telegram_auto_send_enabled
-
-    rest, options = _parse_common_flags(args)
-    list_name = options["list_name"]
-    if rest and not rest[0].startswith("-"):
-        list_name = rest[0]
-
-    try:
-        out = run_promos_export(
-            list_name,
-            output=options["output"],
-            apply_pantry=options["apply_pantry"],
-            apply_filters=False if options["no_filter"] else None,
-        )
-    except RuntimeError as e:
-        print(f"Erreur : {e}")
-        sys.exit(1)
-
-    if options["telegram"] or telegram_auto_send_enabled():
-        try:
-            send_promos_export(out, list_name)
-            print(f"✓ Envoyé sur Telegram (topic Comida)")
-        except RuntimeError as e:
-            print(f"⚠ Telegram : {e}")
-            print("  Configurez .env puis : uv run python validate.py telegram-setup")
-            sys.exit(1)
+def cmd_promos(_args: list[str]) -> None:
+    print("La commande « promos » (export liste Migros → Kookd) n’est plus utilisée.")
+    print("Exportez vos recettes depuis Kookd vers exports/semaine.txt, puis :")
+    print("  uv run python main.py week exports/semaine.txt")
+    sys.exit(1)
 
 
 def main() -> None:
     args = sys.argv[1:]
     if not args:
-        print("Usage: main.py prepare|week|ui|promos [options]")
+        print("Usage: main.py prepare|week|ui [options]")
         sys.exit(1)
 
     cmd = args[0]

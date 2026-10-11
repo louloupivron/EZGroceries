@@ -111,35 +111,50 @@ def is_always_buy(ingredient_name: str, always_buy: list[PantryStock], threshold
     return None
 
 
+def _match_specificity(
+    item: PantryStock,
+    ingredient_name: str,
+    threshold: int,
+) -> tuple[int, int] | None:
+    """Higher tuple wins. A broad « et » / « / » line loses to a more precise stock line."""
+    name = ingredient_name.lower()
+    pantry_name = item.name.lower()
+    tokens = [t for t in re.findall(r"[a-zàâäéèêëïîôùûüç]+", pantry_name) if len(t) >= 3]
+    if "en tout genre" in pantry_name:
+        if tokens and tokens[0] in name:
+            return (1, len(pantry_name))
+        return None
+    broad = bool(re.search(r"\s+et\s+|/", pantry_name))
+    if len(tokens) >= 2:
+        matched = [t for t in tokens if t in name]
+        if len(matched) == len(tokens):
+            return (80 + len(tokens), len(pantry_name))
+        if broad and matched:
+            return (10 + len(matched), len(pantry_name))
+        return None
+    for keyword in _pantry_keywords(item.name):
+        if _word_match(keyword, name):
+            return (50, len(pantry_name))
+    if len(item.name) > 4 and fuzz.token_set_ratio(item.name, name) >= threshold:
+        return (5, int(fuzz.token_set_ratio(item.name, name)))
+    return None
+
+
 def find_pantry_match(
     ingredient_name: str,
     pantry: list[PantryStock],
     threshold: int = 72,
 ) -> PantryStock | None:
-    name = ingredient_name.lower()
+    best: PantryStock | None = None
+    best_score: tuple[int, int] | None = None
     for item in pantry:
-        pantry_tokens = [
-            t for t in re.findall(r"[a-zàâäéèêëïîôùûüç]+", item.name.lower()) if len(t) >= 3
-        ]
-        if len(pantry_tokens) >= 2:
-            pantry_name = item.name.lower()
-            if "en tout genre" in pantry_name:
-                if pantry_tokens[0] in name:
-                    return item
-                continue
-            if re.search(r"\s+et\s+|/", pantry_name):
-                if any(token in name for token in pantry_tokens):
-                    return item
-                continue
-            if all(token in name for token in pantry_tokens):
-                return item
+        score = _match_specificity(item, ingredient_name, threshold)
+        if score is None:
             continue
-        for keyword in _pantry_keywords(item.name):
-            if _word_match(keyword, name):
-                return item
-        if len(item.name) > 4 and fuzz.token_set_ratio(item.name, name) >= threshold:
-            return item
-    return None
+        if best_score is None or score > best_score:
+            best = item
+            best_score = score
+    return best
 
 
 def apply_pantry_stock(

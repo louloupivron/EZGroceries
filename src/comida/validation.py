@@ -24,7 +24,9 @@ Tu aides à préparer les courses Comida (workflow favoris + promos Migros).
 Fichier de session : data/validation_session.json
 
 Règles :
-- Les promos de la semaine sont prises automatiquement (favori s'il est en offre, sinon meilleure promo).
+- Un produit n'est retenu que s'il est le même aliment (identité), pas seulement un score proche.
+- Ordre : mapping appris, puis favori (en priorité s'il est en promo), puis promo, puis recherche.
+- La liste Migros ne choisit pas le produit ; elle sert au push.
 - Hors promo, les produits sont résolus via les favoris Migros (Mes produits).
 - Si aucun favori ni promo : l'utilisateur doit ajouter le produit sur migros.ch/fr/my-products
   puis relancer `uv run python main.py week` ou `validate.py refresh`.
@@ -237,6 +239,7 @@ def build_validation_session(pipeline_result: dict, mappings_path: Path = MAPPIN
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "recipe": pipeline_result.get("recipe"),
+        "list_name": pipeline_result.get("list_name"),
         "portions": pipeline_result.get("portions"),
         "agent_instructions": AGENT_INSTRUCTIONS.strip(),
         "promotions_total": pipeline_result.get("promotions_total"),
@@ -272,7 +275,7 @@ def load_session(path: Path = SESSION_PATH) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _parse_basket_quantity(quantity: str | None, package: str | None = None) -> int:
+def _parse_basket_quantity(quantity: str | None, package: str | None = None):
     return compute_basket_quantity(quantity, package)
 
 
@@ -449,6 +452,7 @@ def accept_option(session: dict, key_fragment: str, rank: int) -> dict:
 
     item["status"] = "accepted"
     item["selected_uid"] = option["uid"]
+    qty = _parse_basket_quantity(item.get("quantity"), option.get("package"))
     session["resolved"].append({
         "key": item["key"],
         "ingredient_name": item["ingredient_name"],
@@ -458,7 +462,9 @@ def accept_option(session: dict, key_fragment: str, rank: int) -> dict:
         "quantity": item.get("quantity"),
         "package": option.get("package"),
         "price_chf": option.get("price_chf"),
-        "quantity_parsed": _parse_basket_quantity(item.get("quantity"), option.get("package")),
+        "quantity_parsed": qty.packs,
+        "quantity_confidence": qty.confidence,
+        "quantity_note": qty.note,
         "source": item.get("validation_reason", "promo"),
     })
     session["pending"] = [p for p in session["pending"] if p["key"] != item["key"]]
@@ -602,6 +608,24 @@ def _resolve_with_favorite(
     return session
 
 
+def _option_from_product_uid(uid: int, promo_ids: set[int]) -> dict | None:
+    from comida.matcher import _display_name, _price_chf, _product_id
+    from comida.migros_client import fetch_product_details
+
+    products = fetch_product_details([uid])
+    if not products:
+        return None
+    product = products[0]
+    pid = _product_id(product) or uid
+    return {
+        "uid": pid,
+        "name": _display_name(product),
+        "package": (product.get("offer") or {}).get("quantity"),
+        "price_chf": _price_chf(product),
+        "on_promotion": bool(pid in promo_ids),
+    }
+
+
 def _resolved_entry(
     key: str,
     ingredient_name: str,
@@ -610,6 +634,7 @@ def _resolved_entry(
     source: str,
 ) -> dict:
     package = product.get("package")
+    qty = _parse_basket_quantity(quantity, package)
     return {
         "key": key,
         "ingredient_name": ingredient_name,
@@ -619,7 +644,9 @@ def _resolved_entry(
         "quantity": quantity,
         "package": package,
         "price_chf": product.get("price_chf"),
-        "quantity_parsed": _parse_basket_quantity(quantity, package),
+        "quantity_parsed": qty.packs,
+        "quantity_confidence": qty.confidence,
+        "quantity_note": qty.note,
         "source": source,
     }
 
@@ -645,20 +672,24 @@ def apply_favorites_workflow(
         pipeline_options: list[dict],
     ) -> None:
         favorite = match_ingredient_to_favorite(ingredient_name, favorite_products, promo_ids)
-        list_options = [o for o in pipeline_options if o.get("source") == "shopping_list"]
         promo_options = [o for o in pipeline_options if o.get("on_promotion")]
         mapping_uid = get_entry(mappings, ingredient_name).get("accepted_uid")
         mapping_option = next(
             (o for o in pipeline_options if o.get("uid") == mapping_uid),
             None,
         ) if mapping_uid else None
+        if mapping_uid and not mapping_option:
+            mapping_option = _option_from_product_uid(mapping_uid, promo_ids)
+
+        def name_ok(product_name: str | None) -> bool:
+            return product_name_fits_ingredient(ingredient_name, product_name or "")
 
         is_weekly = ingredient_name.lower() in weekly_keys
         if is_weekly:
-            if mapping_option and product_name_fits_ingredient(ingredient_name, mapping_option.get("name", "")):
+            if mapping_option and name_ok(mapping_option.get("name", "")):
                 resolved.append(_resolved_entry(key, ingredient_name, quantity, mapping_option, "mapping"))
                 return
-            if favorite and product_name_fits_ingredient(ingredient_name, favorite.get("name", "")):
+            if favorite and name_ok(favorite.get("name", "")):
                 resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
                 return
             needs_favorite.append({
@@ -673,43 +704,32 @@ def apply_favorites_workflow(
             })
             return
 
-        if list_options:
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, list_options[0], "shopping_list"))
+        if mapping_option and name_ok(mapping_option.get("name", "")):
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, mapping_option, "mapping"))
             return
 
-        if mapping_option and product_name_fits_ingredient(ingredient_name, mapping_option.get("name", "")):
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, mapping_option, "mapping"))
+        if favorite and name_ok(favorite.get("name", "")):
+            source = "promo_favorite" if favorite.get("on_promotion") else "favorite"
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, source))
             return
 
         compatible_promos = [
             o for o in promo_options
-            if product_name_fits_ingredient(ingredient_name, o.get("name", ""))
+            if o.get("source") != "shopping_list" and name_ok(o.get("name", ""))
         ]
         compatible_search = [
             o for o in pipeline_options
             if o.get("source") not in ("shopping_list",)
-            and product_name_fits_ingredient(ingredient_name, o.get("name", ""))
+            and not o.get("on_promotion")
+            and name_ok(o.get("name", ""))
         ]
-
-        if favorite and favorite.get("on_promotion"):
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "promo_favorite"))
-            return
-
-        if favorite and product_name_fits_ingredient(ingredient_name, favorite.get("name", "")):
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
-            return
 
         if compatible_promos:
             resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_promos[0], "promo"))
             return
 
         if compatible_search:
-            source = "search" if compatible_search[0].get("source") == "search" else "promo"
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_search[0], source))
-            return
-
-        if favorite:
-            resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_search[0], "search"))
             return
 
         needs_favorite.append({
@@ -755,6 +775,62 @@ def apply_favorites_workflow(
     return session
 
 
+REFRESH_SOURCES = frozenset({
+    "favorite",
+    "favorite_fallback",
+    "promo",
+    "promo_favorite",
+    "shopping_list",
+    "search",
+    "mapping",
+})
+
+
+def _pending_shell(item: dict, options: list[dict]) -> dict:
+    return {
+        "key": item["key"],
+        "ingredient_raw": item.get("ingredient_raw") or f"- {item['ingredient_name']}",
+        "ingredient_name": item["ingredient_name"],
+        "quantity": item.get("quantity", "?"),
+        "status": "pending",
+        "current_rank": 1,
+        "selected_uid": None,
+        "options": options,
+    }
+
+
+def _option_from_resolved(item: dict) -> dict:
+    return {
+        "rank": 1,
+        "uid": item.get("uid"),
+        "name": item.get("name") or "",
+        "package": item.get("package"),
+        "price_chf": item.get("price_chf"),
+        "on_promotion": bool(item.get("on_promotion")),
+        "labels": [],
+        "score": item.get("score") or 0,
+        "source": item.get("source") or "search",
+    }
+
+
+def rebuild_pending_for_refresh(session: dict) -> dict:
+    """Re-open every auto-resolved line so a guard or mapping fix applies without a full week."""
+    rebuilt_pending: list[dict] = list(session.get("pending", []))
+    for item in session.get("needs_favorite", []):
+        rebuilt_pending.append(_pending_shell(item, []))
+    kept: list[dict] = []
+    for item in session.get("resolved", []):
+        if item.get("source") in REFRESH_SOURCES:
+            options = [_option_from_resolved(item)] if item.get("uid") else []
+            rebuilt_pending.append(_pending_shell(item, options))
+        else:
+            kept.append(item)
+    session["pending"] = rebuilt_pending
+    session["needs_favorite"] = []
+    session["resolved"] = kept
+    return session
+
+
 def refresh_favorites_workflow(session: dict) -> dict:
     """Re-fetch favorites and re-apply workflow on current session."""
     from comida.favorites import fetch_favorites_with_details
@@ -762,41 +838,23 @@ def refresh_favorites_workflow(session: dict) -> dict:
 
     favorite_products = fetch_favorites_with_details()
     promo_ids = set(fetch_promotions_cached()[0])
-
-    # Rebuild pending from resolved favorites + needs_favorite + pending promos
-    rebuilt_pending: list[dict] = []
-    for item in session.get("pending", []):
-        rebuilt_pending.append(item)
-    for item in session.get("needs_favorite", []):
-        rebuilt_pending.append({
-            "key": item["key"],
-            "ingredient_raw": f"- {item['ingredient_name']}",
-            "ingredient_name": item["ingredient_name"],
-            "quantity": item.get("quantity", "?"),
-            "status": "pending",
-            "current_rank": 1,
-            "selected_uid": None,
-            "options": [],
-        })
-    for item in session.get("resolved", []):
-        if item.get("source") == "favorite":
-            rebuilt_pending.append({
-                "key": item["key"],
-                "ingredient_raw": f"- {item['ingredient_name']}",
-                "ingredient_name": item["ingredient_name"],
-                "quantity": item.get("quantity", "?"),
-                "status": "pending",
-                "current_rank": 1,
-                "selected_uid": None,
-                "options": [],
-            })
-
-    session["pending"] = rebuilt_pending
-    session["needs_favorite"] = []
-    session["resolved"] = [
-        r for r in session.get("resolved", []) if r.get("source") not in ("favorite", "favorite_fallback")
-    ]
+    rebuild_pending_for_refresh(session)
     return apply_favorites_workflow(session, favorite_products, promo_ids)
+
+
+def confirm_quantity(session: dict, key_fragment: str) -> dict:
+    """Accept an estimated pack count so the line can be pushed."""
+    item, collection = find_item_by_key(session, key_fragment)
+    if not item or collection != "resolved":
+        raise ValueError(f"Aucune ligne résolue pour « {key_fragment} »")
+    if item.get("quantity_confidence") != "revue":
+        raise ValueError(f"« {item['ingredient_name']} » n'a pas une quantité à confirmer")
+    item["quantity_confidence"] = "ok"
+    item["quantity_note"] = ""
+    session["_last_message"] = (
+        f"Quantité confirmée : {item['ingredient_name']} × {item.get('quantity_parsed', 1)}"
+    )
+    return session
 
 
 def auto_accept_from_mappings(session: dict, mappings_path: Path = MAPPINGS_PATH) -> dict:
@@ -843,7 +901,7 @@ def validation_summary(session: dict) -> str:
     if weekly_staples:
         lines.append(f"Courses hebdo : {len(weekly_staples)}")
     if list_resolved:
-        lines.append(f"Via liste S1 : {len(list_resolved)}")
+        lines.append(f"Via liste : {len(list_resolved)}")
     if promos_resolved:
         lines.append(f"Via promos : {len(promos_resolved)}")
     if fav_resolved:
@@ -858,9 +916,11 @@ def validation_summary(session: dict) -> str:
             if r.get("ingredient_name", "").lower() in weekly_set:
                 tags.append("HEBDO")
             if r.get("source") == "shopping_list":
-                tags.append("S1")
+                tags.append("LISTE")
             if r.get("on_promotion"):
                 tags.append("PROMO")
+            if r.get("quantity_confidence") == "revue":
+                tags.append("QTE")
             tag_s = f" [{'/'.join(tags)}]" if tags else ""
             qty = r.get("quantity_parsed", 1)
             qty_s = f" × {qty}" if qty and qty > 1 else ""

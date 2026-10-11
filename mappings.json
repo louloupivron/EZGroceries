@@ -15,6 +15,32 @@
       100006574
     ]
   },
+  "lardons": {
+    "ingredient_label": "Lardons",
+    "accepted_uid": 100090701,
+    "backup_uid": 100045473,
+    "rejected_uids": [
+      100045155
+    ]
+  },
+  "lait": {
+    "ingredient_label": "lait",
+    "accepted_uid": 100033146,
+    "backup_uid": null,
+    "rejected_uids": [
+      100032638,
+      100041184,
+      100004913
+    ]
+  },
+  "tortillas-ble": {
+    "ingredient_label": "Tortillas de blé",
+    "accepted_uid": 100215735,
+    "backup_uid": null,
+    "rejected_uids": [
+      100005629
+    ]
+  },
   "creme-epaisse": {
     "ingredient_label": "Crème fraîche épaisse",
     "accepted_uid": 100005473,
@@ -57,10 +83,36 @@
   },
   "riz-sushi": {
     "ingredient_label": "Riz à sushi",
-    "accepted_uid": null,
+    "accepted_uid": 100032638,
     "backup_uid": null,
     "rejected_uids": [
-      100212133
+      100212133,
+      100028647,
+      100041184
+    ]
+  },
+  "riz-sushi-cuit": {
+    "ingredient_label": "Riz à sushi cuit",
+    "accepted_uid": 100032638,
+    "backup_uid": null,
+    "rejected_uids": [
+      100212133,
+      100028647,
+      100041184
+    ]
+  },
+  "mangue": {
+    "ingredient_label": "Mangue",
+    "accepted_uid": 100035246,
+    "backup_uid": null,
+    "rejected_uids": []
+  },
+  "lait-riz": {
+    "ingredient_label": "lait de riz",
+    "accepted_uid": 100041184,
+    "backup_uid": null,
+    "rejected_uids": [
+      100032638
     ]
   },
   "carottes": {
@@ -78,5 +130,123 @@
     "rejected_uids": [
       100006690
     ]
+  },
+  "poivrons": {
+    "ingredient_label": "Poivrons",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100103844
+    ]
+  },
+  "poivre-noir": {
+    "ingredient_label": "Poivre noir",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100095841
+    ]
+  },
+  "farine-ble": {
+    "ingredient_label": "Farine de blé",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100037360
+    ]
+  },
+  "paprika": {
+    "ingredient_label": "Paprika",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100033646
+    ]
+  },
+  "tomates-cerises": {
+    "ingredient_label": "Tomates cerises",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100023482
+    ]
+  },
+  "pulpe-tomate": {
+    "ingredient_label": "Pulpe de tomate",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100023482
+    ]
+  },
+  "beurre": {
+    "ingredient_label": "beurre",
+    "accepted_uid": 100001579,
+    "backup_uid": null,
+    "rejected_uids": [
+      100041184
+    ]
+  },
+  "cornichons": {
+    "ingredient_label": "Cornichons",
+    "accepted_uid": 100207971,
+    "backup_uid": null,
+    "rejected_uids": [
+      100035666
+    ]
+  },
+  "philadelphia": {
+    "ingredient_label": "Philadelphia",
+    "accepted_uid": 100006231,
+    "backup_uid": 100054427,
+    "rejected_uids": [
+      100007338
+    ]
+  },
+  "pois-chiches": {
+    "ingredient_label": "Pois chiches",
+    "accepted_uid": 100210889,
+    "backup_uid": null,
+    "rejected_uids": [
+      100032638
+    ]
+  },
+  "roquette": {
+    "ingredient_label": "Roquette",
+    "accepted_uid": 100005580,
+    "backup_uid": null,
+    "rejected_uids": [
+      100023482
+    ]
+  },
+  "courgettes": {
+    "ingredient_label": "Courgettes",
+    "accepted_uid": 100056203,
+    "backup_uid": null,
+    "rejected_uids": [
+      100067825
+    ]
+  },
+  "ufs": {
+    "ingredient_label": "Œufs",
+    "accepted_uid": 100167617,
+    "backup_uid": null,
+    "rejected_uids": [
+      100001579
+    ]
+  },
+  "citron-vert": {
+    "ingredient_label": "Citron vert",
+    "accepted_uid": 100007674,
+    "backup_uid": null,
+    "rejected_uids": [
+      100045155
+    ]
+  },
+  "fromage-squacquerone-stracchino": {
+    "ingredient_label": "Fromage Squacquerone ou Stracchino",
+    "accepted_uid": 100006231,
+    "backup_uid": null,
+    "rejected_uids": []
   }
 }

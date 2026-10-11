@@ -12,12 +12,11 @@ UI_STATE_PATH = ROOT / "data" / "ui_state.json"
 SESSION_PATH = ROOT / "data" / "validation_session.json"
 
 STEPS = (
-    {"id": "promos", "label": "Promos", "short": "1"},
-    {"id": "kookd", "label": "Kookd", "short": "2"},
-    {"id": "week", "label": "Analyse", "short": "3"},
-    {"id": "validate", "label": "Favoris", "short": "4"},
-    {"id": "push", "label": "Push", "short": "5"},
-    {"id": "checkout", "label": "Checkout", "short": "6"},
+    {"id": "kookd", "label": "Kookd", "short": "1"},
+    {"id": "week", "label": "Analyse", "short": "2"},
+    {"id": "validate", "label": "Validation", "short": "3"},
+    {"id": "push", "label": "Push", "short": "4"},
+    {"id": "checkout", "label": "Checkout", "short": "5"},
 )
 
 
@@ -65,18 +64,10 @@ def _recipe_exports() -> list[Path]:
     )
 
 
-def _promo_exports() -> list[Path]:
-    if not EXPORTS_DIR.is_dir():
-        return []
-    return sorted(EXPORTS_DIR.glob("promos-*.txt"))
-
-
 def compute_workflow(session: dict | None) -> dict:
     ui = load_ui_state()
-    promos_files = _promo_exports()
     recipe_files = _recipe_exports()
 
-    promos_done = bool(promos_files)
     kookd_done = bool(ui.get("kookd_done")) or bool(recipe_files)
     has_session = bool(session and session.get("resolved"))
     needs_fav = len(session.get("needs_favorite", [])) if session else 0
@@ -96,7 +87,6 @@ def compute_workflow(session: dict | None) -> dict:
     checkout_done = push_done and bool(last_push.get("checkout", {}).get("checkoutUrl"))
 
     flags = {
-        "promos": promos_done,
         "kookd": kookd_done,
         "week": week_done,
         "validate": validate_done,
@@ -104,7 +94,7 @@ def compute_workflow(session: dict | None) -> dict:
         "checkout": checkout_done,
     }
 
-    current_id = "promos"
+    current_id = "kookd"
     for step in STEPS:
         if not flags[step["id"]]:
             current_id = step["id"]
@@ -129,7 +119,6 @@ def compute_workflow(session: dict | None) -> dict:
         "ui_state": {
             "kookd_done": bool(ui.get("kookd_done")),
             "recipe_exports": [p.name for p in recipe_files],
-            "promo_exports": [p.name for p in promos_files],
             "last_push": last_push,
             "portions": ui.get("portions"),
             "base_portions": ui.get("base_portions"),

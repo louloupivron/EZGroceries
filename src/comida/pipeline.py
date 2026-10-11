@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-from comida.list_catalog import load_shopping_list_catalog, match_ingredient_to_list
 from comida.matcher import (
     ProductMatch,
     rank_products,
@@ -31,6 +30,7 @@ def run_promo_first(
     base_portions: int = DEFAULT_PORTIONS,
     refresh_promos: bool = False,
     weekly_staples_path: Path | None = WEEKLY_STAPLES_PATH,
+    list_name: str | None = None,
 ) -> dict:
     text = recipe_path.read_text(encoding="utf-8")
     ingredients = parse_kookd_export(text)
@@ -47,6 +47,7 @@ def run_promo_first(
         refresh_promos=refresh_promos,
         portions=portions,
         weekly_staples_path=weekly_staples_path,
+        list_name=list_name,
     )
 
 
@@ -59,6 +60,7 @@ def run_promo_first_multi(
     base_portions: int = DEFAULT_PORTIONS,
     refresh_promos: bool = False,
     weekly_staples_path: Path | None = WEEKLY_STAPLES_PATH,
+    list_name: str | None = None,
 ) -> dict:
     all_ingredients: list[Ingredient] = []
     labels: list[str] = []
@@ -81,6 +83,7 @@ def run_promo_first_multi(
         refresh_promos=refresh_promos,
         portions=portions,
         weekly_staples_path=weekly_staples_path,
+        list_name=list_name,
     )
 
 
@@ -93,6 +96,7 @@ def _run_promo_first_on_ingredients(
     refresh_promos: bool = False,
     portions: int = DEFAULT_PORTIONS,
     weekly_staples_path: Path | None = WEEKLY_STAPLES_PATH,
+    list_name: str | None = None,
 ) -> dict:
     staples = load_weekly_staples(weekly_staples_path)
     to_buy_recipe, skipped = filter_pantry(ingredients, pantry_path)
@@ -103,8 +107,6 @@ def _run_promo_first_on_ingredients(
         max_promo_products=max_promo_products,
     )
     promo_ids = set(promo_ids_list)
-    list_catalog = load_shopping_list_catalog()
-    used_list_uids: set[int] = set()
 
     matches: list[ProductMatch] = []
     unmatched: list[str] = []
@@ -112,19 +114,6 @@ def _run_promo_first_on_ingredients(
 
     for ingredient in to_buy:
         terms = search_terms(ingredient.name)
-
-        if list_catalog:
-            list_match = match_ingredient_to_list(
-                ingredient, list_catalog, promo_ids, used_uids=used_list_uids
-            )
-            if list_match:
-                uid = _product_id(list_match.product)
-                if uid:
-                    used_list_uids.add(uid)
-                matches.append(list_match)
-                if list_match.ambiguous:
-                    ambiguous.append(list_match)
-                continue
 
         promo_pool = _promo_candidates(ingredient.name, promo_products)
         match = rank_products(ingredient, promo_pool, promo_ids, "promotion", extra_terms=terms)
@@ -154,6 +143,7 @@ def _run_promo_first_on_ingredients(
 
     return {
         "recipe": recipe_label,
+        "list_name": list_name,
         "portions": portions,
         "ingredients_total": len(ingredients),
         "pantry_skipped": [(i.raw, rule) for i, rule in skipped],

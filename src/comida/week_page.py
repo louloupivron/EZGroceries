@@ -106,7 +106,8 @@ def generate_week_page(
 
     links_html = ""
     if list_url:
-        links_html += f'<a class="btn btn-secondary" href="{_esc(list_url)}">Liste S1</a> '
+        list_label = session.get("list_name") or "les Avengers"
+        links_html += f'<a class="btn btn-secondary" href="{_esc(list_url)}">Liste {_esc(list_label)}</a> '
     links_html += f'<a class="btn btn-secondary" href="{_esc(MIGROS_MY_PRODUCTS_URL)}">Favoris</a>'
 
     budget_html = ""

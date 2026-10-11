@@ -23,9 +23,12 @@ def _load_dotenv() -> None:
             os.environ[key] = val
 
 
+DEFAULT_LIST_NAME = "les Avengers"
+
+
 def default_list_name() -> str:
     _load_dotenv()
-    return os.environ.get("MIGROS_SHOPPING_LIST_NAME", "S1").strip() or "S1"
+    return os.environ.get("MIGROS_SHOPPING_LIST_NAME", DEFAULT_LIST_NAME).strip() or DEFAULT_LIST_NAME
 
 
 def configured_list_id() -> int | None:
@@ -94,12 +97,11 @@ def get_basket() -> dict:
     return _run_basket("basket")
 
 
-def get_basket_for_list(
+def _env_for_list(
     *,
     list_name: str | None = None,
     list_id: int | None = None,
-) -> dict:
-    """Fetch basket for a specific Migros list (overrides .env for this call)."""
+) -> dict[str, str]:
     _load_dotenv()
     env = os.environ.copy()
     if list_id is not None:
@@ -109,10 +111,21 @@ def get_basket_for_list(
         resolved_name, resolved_id = resolve_list_target(list_name)
         if resolved_id is not None:
             env["MIGROS_SHOPPING_LIST_ID"] = str(resolved_id)
-            env.pop("MIGROS_SHOPPING_LIST_NAME", None)
+            env["MIGROS_SHOPPING_LIST_NAME"] = ""
         else:
             env["MIGROS_SHOPPING_LIST_NAME"] = resolved_name or list_name
-            env.pop("MIGROS_SHOPPING_LIST_ID", None)
+            # Empty string blocks migros-basket.mjs loadDotenv from re-injecting .env ID.
+            env["MIGROS_SHOPPING_LIST_ID"] = ""
+    return env
+
+
+def get_basket_for_list(
+    *,
+    list_name: str | None = None,
+    list_id: int | None = None,
+) -> dict:
+    """Fetch basket for a specific Migros list (overrides .env for this call)."""
+    env = _env_for_list(list_name=list_name, list_id=list_id)
     args = ["node", str(BASKET_SCRIPT), "basket"]
     proc = subprocess.run(args, capture_output=True, text=True, cwd=ROOT, check=False, env=env)
     if proc.returncode != 0:
@@ -125,14 +138,50 @@ def get_basket_for_list(
     return json.loads(proc.stdout)
 
 
-def push_items(items: list[dict]) -> dict:
+def push_items(
+    items: list[dict],
+    *,
+    list_name: str | None = None,
+    list_id: int | None = None,
+) -> dict:
     """Each item: uid, quantity (default 1), ingredient_name optional."""
-    return _run_basket("push", items=json.dumps(items))
+    _load_dotenv()
+    env = _env_for_list(list_name=list_name, list_id=list_id)
+    args = ["node", str(BASKET_SCRIPT), "push", "--items", json.dumps(items)]
+    proc = subprocess.run(args, capture_output=True, text=True, cwd=ROOT, check=False, env=env)
+    if proc.returncode != 0:
+        err = proc.stderr.strip() or proc.stdout.strip()
+        try:
+            payload = json.loads(err)
+            raise RuntimeError(payload.get("error", err))
+        except json.JSONDecodeError:
+            raise RuntimeError(err)
+    return json.loads(proc.stdout)
+
+
+def merge_items_by_uid(items: list[dict]) -> list[dict]:
+    """One target quantity per product. Later lines of the same uid are summed."""
+    merged: dict[int, dict] = {}
+    order: list[int] = []
+    for item in items:
+        uid = item.get("uid")
+        if not uid:
+            continue
+        uid = int(uid)
+        qty = int(item.get("quantity") or 1)
+        if uid not in merged:
+            merged[uid] = {**item, "uid": uid, "quantity": qty}
+            order.append(uid)
+        else:
+            merged[uid]["quantity"] += qty
+    return [merged[uid] for uid in order]
 
 
 def resolved_to_basket_items(resolved: list[dict], default_quantity: int = 1) -> list[dict]:
     out: list[dict] = []
     for r in resolved:
+        if r.get("quantity_confidence") == "revue":
+            continue
         uid = r.get("uid")
         if not uid:
             continue
@@ -145,4 +194,18 @@ def resolved_to_basket_items(resolved: list[dict], default_quantity: int = 1) ->
                 "name": r.get("name"),
             }
         )
-    return out
+    return merge_items_by_uid(out)
+
+
+def record_pushed_quantities(session: dict, results: list[dict]) -> dict:
+    """Remember the quantities last sent, which replace whatever was on the list."""
+    session["pushed"] = [
+        {
+            "uid": r.get("productId") or r.get("uid"),
+            "quantity": r.get("quantity"),
+            "ingredient_name": r.get("ingredient") or r.get("ingredient_name"),
+        }
+        for r in results
+        if r.get("ok", True) and (r.get("productId") or r.get("uid"))
+    ]
+    return session

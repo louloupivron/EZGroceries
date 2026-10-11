@@ -8,7 +8,7 @@ alwaysApply: false
 
 Quand l'utilisateur prépare des courses Migros ou mentionne `validation_session.json` :
 
-1. Workflow **promo-first puis favoris** : les promos de la semaine sont prises automatiquement ; hors promo, résolution via les favoris Migros (`/shopping/public/v3/favorites/products`).
+1. Workflow : mapping appris, puis favori du même aliment (en priorité s'il est en promo), puis promo, puis recherche. La liste **les Avengers** ne choisit pas le produit. Un score flou sans identité d'aliment ne valide pas.
 2. Si aucun favori ni promo → `needs_favorite` : demander d'ajouter sur migros.ch/fr/my-products puis `validate.py refresh`.
 3. Pas de validation manuelle produit par produit.
 4. Commandes :

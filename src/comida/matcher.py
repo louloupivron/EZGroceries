@@ -81,6 +81,15 @@ def _score_bonus(ingredient_name: str, product: dict) -> float:
             bonus += 8
         if re.fullmatch(r"karotten?", blob.strip()) or blob.strip() == "karotten":
             bonus += 5
+    if "ail" in low or "gousse" in low:
+        if "knoblauch" in blob:
+            bonus += 15
+    if "farine" in low or "blé" in low or "ble" in low:
+        if "mehl" in blob:
+            bonus += 15
+    if "cerise" in low and "tomate" in low:
+        if "dattel" in blob or "cherry" in blob or "cocktail" in blob:
+            bonus += 15
     return bonus
 
 
@@ -115,14 +124,21 @@ def _promo_candidates(ingredient_name: str, products: list[dict]) -> list[dict]:
 
 def _is_non_food(product: dict) -> bool:
     text = _display_name(product).lower()
+    crumbs = " ".join(
+        (b.get("name") or "").lower() for b in (product.get("breadcrumb") or [])
+    )
+    blob = f"{text} {crumbs}"
     markers = (
         "shampoo", "conditioner", "maske", "dreamies", "edgard",
-        "für katzen", "katzen", "hundefutter", "tier",
+        "für katzen", "katzen", "hundefutter", "tierfutter", "haustier",
         "sterilcat", "katzennahrung", "katzenfutter",
         "geschirrspül", "geschirrspul", "spülmaschine", "spulmaschine",
         "tabs für", "finish tabs", "dishwasher",
+        "duschcreme", "duschgel", "shower gel", "shower cream",
+        "deodorant", "déodorant", "body lotion", "hautpflege", "körperpflege",
+        "beauty & gesundheit", "bade- & duschprodukte",
     )
-    return any(m in text for m in markers)
+    return any(m in blob for m in markers)
 
 
 def _is_prepared_food(product: dict) -> bool:

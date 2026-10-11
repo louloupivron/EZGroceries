@@ -50,7 +50,19 @@ SAUCE_CONDIMENT_HINTS = {
     "tabasco", "worcester",
 }
 
-YOGURT_HINTS = {"joghurt", "yoghurt", "yogurt", "bifidus", "skyr", "dessert"}
+YOGURT_HINTS = {
+    "joghurt", "yoghurt", "yogurt", "bifidus", "skyr", "dessert",
+    "milchspezialitat", "milchperle", "perle de lait",
+}
+
+PLANT_MILK_HINTS = {
+    "mandeldrink", "haferdrink", "reisdrink", "sojadrink", "kokosdrink",
+    "pflanzendrink", "hafermilch", "mandelmilch", "reismilch", "sojamilch",
+}
+PLANT_MILK_CRUMBS = {
+    "vegane alternativen zu milchprodukten",
+    "alternativen zu milch",
+}
 
 PREPARED_HINTS = {
     "fertiggericht", "fertig", "salatbowl", "sandwich", "wrap", "lasagne",
@@ -58,6 +70,17 @@ PREPARED_HINTS = {
     "ravioli fertig", "gnocchi fertig",
 }
 MOMO_HINTS = {"momo", "momos"}
+
+# Ingrédients de base (conserves, pâtes fraîches) — pas des plats préparés
+COOKING_STAPLE_HINTS = {
+    "gnocchi", "thunfisch", "thon", "sardine", "maquereau", "anchois",
+    "spaghetti", "penne", "rigatoni", "tagliatelle", "fusilli",
+}
+
+BREAKFAST_CEREAL_CRUMBS = {"cerealien", "müesli", "muesli"}
+BREAKFAST_CEREAL_HINTS = {
+    "cereal", "müesli", "muesli", "corn flakes", "special k", "flakes", "crunchy",
+}
 
 CHEESE_HINTS: list[tuple[str, str]] = [
     ("mozzarella", "mozzarella pour pizza"),
@@ -148,14 +171,44 @@ def _is_table_sauce(product: dict) -> bool:
 
 def _is_yogurt_or_dessert_dairy(product: dict) -> bool:
     blob = _name_blob(product)
-    return any(k in blob for k in YOGURT_HINTS)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    crumbs = " ".join(_breadcrumb_names(product))
+    haystack = f"{blob} {title} {crumbs}"
+    return any(k in haystack for k in YOGURT_HINTS)
 
 
-CANNED_BASE_HINTS = {"tomaten", "tomate", "passata", "pelati", "dosentomaten", "mais", "maïs", "kidney", "kichererbsen"}
+def _is_plant_milk_or_drink(product: dict) -> bool:
+    blob = _name_blob(product)
+    crumbs = _breadcrumb_names(product)
+    if any(k in blob for k in PLANT_MILK_HINTS):
+        return True
+    if any(c in PLANT_MILK_CRUMBS for c in crumbs):
+        return True
+    if "joghurt drink" in blob or "yogurt drink" in blob:
+        return True
+    return False
+
+
+CANNED_BASE_HINTS = {
+    "tomaten", "tomate", "passata", "pelati", "dosentomaten", "mais", "maïs",
+    "kidney", "kichererbsen", "thunfisch", "thon",
+}
 
 
 def _is_canned_base_ingredient(product: dict) -> bool:
     return any(h in _name_blob(product) for h in CANNED_BASE_HINTS)
+
+
+def _is_cooking_staple(product: dict) -> bool:
+    return any(h in _name_blob(product) for h in COOKING_STAPLE_HINTS)
+
+
+def _is_breakfast_cereal(product: dict) -> bool:
+    crumbs = _breadcrumb_names(product)
+    if any(marker in c for c in crumbs for marker in BREAKFAST_CEREAL_CRUMBS):
+        return True
+    blob = _name_blob(product)
+    return any(k in blob for k in BREAKFAST_CEREAL_HINTS)
 
 
 def _is_prepared_not_momo(product: dict) -> bool:
@@ -164,10 +217,17 @@ def _is_prepared_not_momo(product: dict) -> bool:
         return False
     if _is_canned_base_ingredient(product):
         return False
+    if _is_cooking_staple(product):
+        return False
     if _is_prepared_food(product):
         return True
     crumbs = _breadcrumb_names(product)
     for crumb in crumbs[1:]:
+        # « konserven & fertiggerichte » ≠ plat préparé (thon, tomates, etc.)
+        if "konserven" in crumb or "konserve" in crumb:
+            continue
+        if "frische fertiggerichte" in crumb or "frischteigwaren" in crumb:
+            return True
         if "fertiggericht" in crumb:
             return True
     return any(k in blob for k in PREPARED_HINTS)
@@ -206,6 +266,10 @@ def _exclusion_reason(
         return "sauce condiment"
     if _is_yogurt_or_dessert_dairy(product):
         return "yaourt / dessert"
+    if _is_plant_milk_or_drink(product):
+        return "boisson (non cuisine)"
+    if _is_breakfast_cereal(product):
+        return "cereales petit-dejeuner"
     if _is_prepared_not_momo(product):
         return "plat prepare"
 
@@ -278,6 +342,119 @@ def _refine_mozzarella_label(label: str, product: dict) -> str:
     return label
 
 
+_YOGURT_FLAVORS = {
+    "heidelbeere": "myrtille",
+    "pfirsich": "pêche",
+    "erdbeer": "fraise",
+    "mango": "mangue",
+    "vanille": "vanille",
+    "kirsche": "cerise",
+    "banane": "banane",
+    "kiwi": "kiwi",
+    "kokosnuss": "coco",
+}
+
+
+def _refine_yogurt_label(label: str, product: dict) -> str:
+    blob = _name_blob(product)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    detail = title or blob
+    if not any(
+        k in detail
+        for k in ("joghurt", "yoghurt", "yogurt", "skyr", "milchspezialitat", "milchperle", "perle de lait")
+    ):
+        return label
+    if "drink" in detail:
+        for de, fr in _YOGURT_FLAVORS.items():
+            if de in detail:
+                return f"boisson au yaourt {fr}"
+        return "boisson au yaourt"
+    for de, fr in _YOGURT_FLAVORS.items():
+        if de in detail:
+            return f"yaourt {fr}"
+    return "yaourt"
+
+
+def _refine_compote_label(label: str, product: dict) -> str:
+    blob = _name_blob(product)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    detail = title or blob
+    if "kompott" not in detail and "compote" not in _normalize(label):
+        return label
+    if "apfel" in detail and "mango" in detail:
+        return "compote pomme-mangue"
+    if "apfel" in detail and ("rote fruchte" in detail or "rote früchte" in detail):
+        return "compote pomme fruits rouges"
+    if "mango" in detail:
+        return "compote mangue"
+    return "compote"
+
+
+def _refine_meat_label(label: str, product: dict) -> str:
+    blob = _name_blob(product)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    detail = title or blob
+    if "schweinsbratwurst" in detail or "schweinsbratwurst" in blob:
+        return "saucisses de porc"
+    if "bratwurst" in detail or "bratwurst" in blob:
+        return "saucisses de porc"
+    if "poulet" in detail and "ganz" in detail:
+        return "poulet entier"
+    return label
+
+
+def _refine_gnocchi_label(label: str, product: dict) -> str:
+    if "gnocchi" in _name_blob(product):
+        return "gnocchi"
+    return label
+
+
+def _refine_tuna_label(label: str, product: dict) -> str:
+    blob = _name_blob(product)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    crumbs = " ".join(_breadcrumb_names(product))
+    if "thunfisch" not in blob and "thon" not in _normalize(label):
+        return label
+    if "frischfisch" in crumbs or "filet" in blob:
+        return "filet de thon"
+    if "olivenol" in title or "olivenöl" in title or "olive" in title:
+        return "thon en conserve à l'huile d'olive"
+    return "thon en conserve"
+
+
+def _refine_sauce_pesto_label(label: str, product: dict) -> str:
+    blob = _name_blob(product)
+    title = _normalize((product.get("title") or "").replace("·", " "))
+    detail = title or blob
+    if "pastasauce" in blob or "pastasauce" in detail:
+        if "basilico" in detail or "basilico" in blob:
+            return "sauce tomate au basilic"
+        return "sauce tomate"
+    if "pesto" in blob:
+        if "limone" in detail or "limone" in blob:
+            return "pesto basilic et citron"
+        if "rosso" in detail or "rosso" in blob:
+            return "pesto rosso"
+        if "genovese" in detail or "genovese" in blob:
+            return "pesto genovese"
+        return "pesto"
+    if "sugo" in blob and "basilico" in detail:
+        return "sauce tomate au basilic"
+    return label
+
+
+def _strip_brand_tokens(label: str) -> str:
+    brands = {
+        "optigal", "barilla", "alpro", "emmi", "la", "molisana", "andros",
+        "frey", "extra", "pink", "lady", "m", "budget", "tradition",
+        "kellogg's", "kelloggs", "rio", "mare", "cornatur", "anna's", "annas",
+        "yaos", "morand", "garofalo", "raccard", "galbani", "thomy", "thai",
+        "kitchen", "porte", "novembre", "migros",
+    }
+    tokens = [t for t in label.split() if t.lower() not in brands]
+    return re.sub(r"\s+", " ", " ".join(tokens)).strip()
+
+
 def _to_kookd_label(product: dict) -> str:
     name = _display_name(product)
     source = _translation_source(product)
@@ -289,8 +466,15 @@ def _to_kookd_label(product: dict) -> str:
     label = _refine_cheese_label(label, product)
     label = _refine_bean_label(label, product)
     label = _refine_mozzarella_label(label, product)
+    label = _refine_yogurt_label(label, product)
+    label = _refine_compote_label(label, product)
+    label = _refine_meat_label(label, product)
+    label = _refine_gnocchi_label(label, product)
+    label = _refine_tuna_label(label, product)
+    label = _refine_sauce_pesto_label(label, product)
     if any(k in _name_blob(product) for k in MOMO_HINTS):
         label = "momos à accompagner de riz et sauce"
+    label = _strip_brand_tokens(label)
     label = label.strip()
     if not label:
         label = translate_product_name(product.get("name") or name)

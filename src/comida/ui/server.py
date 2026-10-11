@@ -4,17 +4,22 @@ from __future__ import annotations
 
 import json
 import os
-import socket
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from comida.basket import push_items, resolved_to_basket_items, shared_list_url
+from comida.basket import (
+    push_items,
+    record_pushed_quantities,
+    resolved_to_basket_items,
+    shared_list_url,
+)
 from comida.budget import estimate_basket
 from comida.matcher import _display_name, _price_chf, _product_id
 from comida.migros_client import search_products
 from comida.promo_cache import fetch_promotions_cached
+from comida.ui.access import access_urls, print_access_urls
 from comida.ui.jobs import job_manager
 from comida.ui.settings import read_config_files, save_config_files, save_preferences
 from comida.ui.workflow import compute_workflow, record_push_result, set_kookd_done
@@ -22,6 +27,7 @@ from comida.week_page import generate_week_page, publish_hint
 from comida.validation import (
     accept_option,
     add_search_results,
+    confirm_quantity,
     load_session,
     reopen_item,
     reject_current,
@@ -40,17 +46,28 @@ def ui_host() -> str:
     return os.environ.get("COMIDA_UI_HOST", DEFAULT_HOST).strip() or DEFAULT_HOST
 
 
-def local_urls(port: int) -> list[str]:
-    urls = [f"http://127.0.0.1:{port}"]
+def ui_port() -> int:
+    return int(os.environ.get("COMIDA_PORT", str(DEFAULT_PORT)))
+
+
+def _maybe_send_ui_link_telegram(port: int) -> None:
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("8.8.8.8", 80))
-            lan_ip = sock.getsockname()[0]
-        if lan_ip and lan_ip != "127.0.0.1":
-            urls.append(f"http://{lan_ip}:{port}")
-    except OSError:
-        pass
-    return urls
+        from comida.telegram import send_ui_access_link
+
+        session = load_session()
+        recipe_path = session.get("recipe") or ""
+        recipe = Path(recipe_path).stem if recipe_path else None
+    except FileNotFoundError:
+        recipe = None
+    try:
+        if send_ui_access_link(port, recipe=recipe):
+            print("✓ Lien mobile envoyé sur Telegram")
+    except RuntimeError as e:
+        print(f"⚠ Telegram : {e}")
+
+
+def local_urls(port: int) -> list[str]:
+    return [entry["url"] for entry in access_urls(port)]
 
 
 def _product_url(product: dict) -> str | None:
@@ -136,6 +153,8 @@ class ComidaHandler(BaseHTTPRequestHandler):
                 self._api_reopen()
             elif path == "/api/push":
                 self._api_push()
+            elif path == "/api/confirm-quantity":
+                self._api_confirm_quantity()
             elif path == "/api/refresh":
                 self._api_refresh()
             elif path == "/api/kookd-done":
@@ -174,6 +193,7 @@ class ComidaHandler(BaseHTTPRequestHandler):
                 "my_products_url": MIGROS_MY_PRODUCTS_URL,
                 "shared_list_url": shared_list_url(),
                 "publish_url": publish_hint(),
+                "access_urls": access_urls(ui_port()),
                 "stats": {"resolved": 0, "pending": 0, "manual": 0, "needs_favorite": 0, "total": 0},
             })
             return
@@ -206,12 +226,14 @@ class ComidaHandler(BaseHTTPRequestHandler):
             "my_products_url": MIGROS_MY_PRODUCTS_URL,
             "shared_list_url": shared_list_url(),
             "publish_url": publish_hint(),
+            "access_urls": access_urls(ui_port()),
             "summary": validation_summary(session),
             "stats": {
                 "resolved": len(resolved),
                 "pending": len(pending),
                 "manual": len(manual),
                 "needs_favorite": len(needs_favorite),
+                "quantity_review": sum(1 for r in resolved if r.get("quantity_confidence") == "revue"),
                 "total": total,
             },
         })
@@ -290,8 +312,17 @@ class ComidaHandler(BaseHTTPRequestHandler):
             }, 400)
             return
 
+        revue = [r for r in resolved if r.get("quantity_confidence") == "revue"]
         items = resolved_to_basket_items(resolved)
-        result = push_items(items)
+        if not items:
+            self._send_json({
+                "ok": False,
+                "error": "Aucun produit poussable. Confirmez les quantités en revue.",
+            }, 400)
+            return
+        result = push_items(items, list_name=session.get("list_name"))
+        record_pushed_quantities(session, result.get("results", []))
+        save_session(session)
         ui_state = record_push_result(result)
         publish_path = None
         publish_url = publish_hint()
@@ -305,10 +336,22 @@ class ComidaHandler(BaseHTTPRequestHandler):
         self._send_json({
             "ok": True,
             "result": result,
+            "skipped_quantities": [r.get("ingredient_name") for r in revue],
             "workflow": compute_workflow(session),
             "ui_state": ui_state,
             "publish_path": publish_path,
             "publish_url": publish_url,
+        })
+
+    def _api_confirm_quantity(self) -> None:
+        data = self._read_json()
+        session = load_session()
+        session = confirm_quantity(session, data["key"])
+        save_session(session)
+        self._send_json({
+            "ok": True,
+            "message": session.get("_last_message", ""),
+            "summary": validation_summary(session),
         })
 
     def _api_refresh(self) -> None:
@@ -358,7 +401,7 @@ class ComidaHandler(BaseHTTPRequestHandler):
         data = self._read_json()
         job_type = data.get("type", "").strip().lower()
         if not job_type:
-            self._send_json({"ok": False, "error": "type requis (promos|week)"}, 400)
+            self._send_json({"ok": False, "error": "type requis (week)"}, 400)
             return
         job = job_manager.start(job_type, **{k: v for k, v in data.items() if k != "type"})
         self._send_json({"ok": True, "job": job})
@@ -388,10 +431,8 @@ def serve(port: int = DEFAULT_PORT, open_browser: bool = True, host: str | None 
         webbrowser.open(f"http://127.0.0.1:{port}")
 
     server = ThreadingHTTPServer((bind_host, port), ComidaHandler)
-    urls = local_urls(port)
-    print(f"Comida UI — {urls[0]}  (Ctrl+C pour arrêter)")
-    if len(urls) > 1:
-        print(f"  Téléphone (même Wi‑Fi) : {urls[1]}")
+    print_access_urls(port)
+    _maybe_send_ui_link_telegram(port)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

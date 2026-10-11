@@ -7,6 +7,7 @@ from pathlib import Path
 
 from comida.basket import default_list_name
 from comida.pipeline import run_promo_first, run_promo_first_multi
+from comida.ui.access import print_access_urls
 from comida.ui.server import serve
 from comida.favorites import fetch_favorites_with_details
 from comida.promo_cache import fetch_promotions_cached
@@ -52,12 +53,14 @@ def run_week(
     portions: int = DEFAULT_PORTIONS,
     base_portions: int = DEFAULT_PORTIONS,
     refresh_promos: bool = False,
+    list_name: str | None = None,
 ) -> dict:
     pantry = pantry_path or (ROOT / "garde-manger.txt")
     paths = resolve_recipe_paths(recipe_paths or [])
+    target_list = list_name or default_list_name()
 
     cache_hint = " (cache promos)" if not refresh_promos else " (refresh promos)"
-    print(f"Analyse Migros en cours (liste {default_list_name()} + promos + favoris){cache_hint}…")
+    print(f"Analyse Migros en cours (liste {target_list} + promos + favoris){cache_hint}…")
     if portions != base_portions:
         print(f"  Portions : {portions} (base Kookd : {base_portions})")
     if len(paths) == 1:
@@ -67,6 +70,7 @@ def run_week(
             portions=portions,
             base_portions=base_portions,
             refresh_promos=refresh_promos,
+            list_name=target_list,
         )
     else:
         print(f"  {len(paths)} export(s) Kookd fusionnés")
@@ -76,6 +80,7 @@ def run_week(
             portions=portions,
             base_portions=base_portions,
             refresh_promos=refresh_promos,
+            list_name=target_list,
         )
 
     if result.get("promotions_from_cache"):
@@ -114,9 +119,9 @@ def run_week(
     print(validation_summary(session))
 
     if open_ui and (pending or needs_fav or session.get("resolved")):
-        url = f"http://127.0.0.1:{port}"
-        print(f"\nInterface : {url}")
-        webbrowser.open(url)
+        print()
+        print_access_urls(port)
+        webbrowser.open(f"http://127.0.0.1:{port}")
         serve(port=port, open_browser=False)
 
     return session
@@ -127,7 +132,7 @@ def run_ui(port: int = 8765) -> None:
     pending = sum(1 for p in session["pending"] if p["status"] == "pending")
     print(f"Session : {session.get('recipe')}")
     print(f"  {pending} en attente, {len(session.get('resolved', []))} validé(s)")
-    url = f"http://127.0.0.1:{port}"
-    print(f"\nInterface : {url}")
-    webbrowser.open(url)
+    print()
+    print_access_urls(port)
+    webbrowser.open(f"http://127.0.0.1:{port}")
     serve(port=port, open_browser=False)
