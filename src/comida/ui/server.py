@@ -21,6 +21,16 @@ from comida.migros_client import search_products
 from comida.promo_cache import fetch_promotions_cached
 from comida.ui.access import access_urls, print_access_urls
 from comida.ui.jobs import job_manager
+from comida.stock_lists import load_lists, save_list
+from comida.prep import (
+    add_migros_link,
+    apply_pantry_checks,
+    confirm_weekly,
+    exclude_weekly_item,
+    pantry_checklist,
+    restore_weekly_item,
+    weekly_board,
+)
 from comida.ui.settings import read_config_files, save_config_files, save_preferences
 from comida.ui.workflow import compute_workflow, record_push_result, set_kookd_done
 from comida.week_page import generate_week_page, publish_hint
@@ -135,6 +145,8 @@ class ComidaHandler(BaseHTTPRequestHandler):
             self._api_favorite_hints()
         elif path == "/api/settings":
             self._api_get_settings()
+        elif path == "/api/stock":
+            self._api_get_stock()
         elif path == "/api/jobs":
             self._api_get_job()
         else:
@@ -161,6 +173,18 @@ class ComidaHandler(BaseHTTPRequestHandler):
                 self._api_kookd_done()
             elif path == "/api/settings":
                 self._api_save_settings()
+            elif path == "/api/stock":
+                self._api_save_stock()
+            elif path == "/api/pantry-check":
+                self._api_pantry_check()
+            elif path == "/api/weekly-exclude":
+                self._api_weekly_exclude()
+            elif path == "/api/weekly-restore":
+                self._api_weekly_restore()
+            elif path == "/api/weekly-link":
+                self._api_weekly_link()
+            elif path == "/api/weekly-done":
+                self._api_weekly_done()
             elif path == "/api/jobs":
                 self._api_start_job()
             elif path == "/api/publish":
@@ -185,6 +209,10 @@ class ComidaHandler(BaseHTTPRequestHandler):
         session = self._load_session_safe()
         if not session:
             workflow = compute_workflow(None)
+            try:
+                pantry = pantry_checklist()
+            except FileNotFoundError:
+                pantry = {"recipe": None, "items": [], "confirmed": False}
             self._send_json({
                 "recipe": None,
                 "workflow": workflow,
@@ -194,6 +222,8 @@ class ComidaHandler(BaseHTTPRequestHandler):
                 "shared_list_url": shared_list_url(),
                 "publish_url": publish_hint(),
                 "access_urls": access_urls(ui_port()),
+                "pantry_check": pantry,
+                "weekly_board": weekly_board(None),
                 "stats": {"resolved": 0, "pending": 0, "manual": 0, "needs_favorite": 0, "total": 0},
             })
             return
@@ -205,6 +235,10 @@ class ComidaHandler(BaseHTTPRequestHandler):
         total = len(pending) + len(manual) + len(needs_favorite) + len(resolved)
         budget = estimate_basket(resolved) if resolved else None
         workflow = compute_workflow(session)
+        try:
+            pantry = pantry_checklist()
+        except FileNotFoundError:
+            pantry = {"recipe": None, "items": [], "confirmed": False}
 
         self._send_json({
             "recipe": session.get("recipe"),
@@ -228,6 +262,8 @@ class ComidaHandler(BaseHTTPRequestHandler):
             "publish_url": publish_hint(),
             "access_urls": access_urls(ui_port()),
             "summary": validation_summary(session),
+            "pantry_check": pantry,
+            "weekly_board": weekly_board(session),
             "stats": {
                 "resolved": len(resolved),
                 "pending": len(pending),
@@ -374,6 +410,48 @@ class ComidaHandler(BaseHTTPRequestHandler):
             "ui_state": state,
             "workflow": compute_workflow(session),
         })
+
+    def _api_pantry_check(self) -> None:
+        data = self._read_json()
+        checklist = apply_pantry_checks(data.get("checked") or [])
+        session = self._load_session_safe()
+        self._send_json({
+            "ok": True,
+            **checklist,
+            "workflow": compute_workflow(session),
+        })
+
+    def _api_weekly_exclude(self) -> None:
+        data = self._read_json()
+        session = exclude_weekly_item(load_session(), str(data.get("key") or ""))
+        save_session(session)
+        self._send_json({"ok": True, "workflow": compute_workflow(session), "weekly_board": weekly_board(session)})
+
+    def _api_weekly_restore(self) -> None:
+        data = self._read_json()
+        session = restore_weekly_item(load_session(), str(data.get("key") or ""))
+        save_session(session)
+        self._send_json({"ok": True, "workflow": compute_workflow(session), "weekly_board": weekly_board(session)})
+
+    def _api_weekly_link(self) -> None:
+        data = self._read_json()
+        session = add_migros_link(load_session(), str(data.get("url") or ""))
+        save_session(session)
+        self._send_json({"ok": True, "workflow": compute_workflow(session), "weekly_board": weekly_board(session)})
+
+    def _api_weekly_done(self) -> None:
+        session = load_session()
+        confirm_weekly(session)
+        self._send_json({"ok": True, "workflow": compute_workflow(session)})
+
+    def _api_get_stock(self) -> None:
+        self._send_json({"ok": True, **load_lists()})
+
+    def _api_save_stock(self) -> None:
+        data = self._read_json()
+        kind = str(data.get("kind") or "").strip()
+        lists = save_list(kind, data.get("items"))
+        self._send_json({"ok": True, **lists})
 
     def _api_get_settings(self) -> None:
         self._send_json({"ok": True, "settings": read_config_files()})

@@ -115,6 +115,10 @@ def save_preferences(
         path = EXPORTS_DIR / name
         if not path.exists():
             raise ValueError(f"Fichier introuvable : exports/{name}")
+        if ui.get("recipe_export") != name:
+            ui["pantry_done_for"] = ""
+            ui["weekly_done_for"] = ""
+            ui["analysis_stale"] = True
         ui["recipe_export"] = name
     save_ui_state(ui)
     if list_url is not None:

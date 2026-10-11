@@ -43,6 +43,7 @@
     }
     header h1 { font-size: 1.15rem; font-weight: 700; }
     .header-row { display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem; }
+    .header-actions { display: flex; gap: .375rem; align-items: center; }
     .btn-icon {
       flex-shrink: 0;
       width: 2.25rem;
@@ -55,6 +56,16 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+    .btn-header {
+      flex-shrink: 0;
+      height: 2.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: .75rem;
+      font-weight: 600;
+      padding: 0 .7rem;
     }
     header .meta { color: var(--muted); font-size: .8rem; margin-top: .2rem; }
     .access-banner {
@@ -81,7 +92,7 @@
     .stepper::-webkit-scrollbar { display: none; }
     .step {
       flex: 1 0 auto;
-      min-width: 4.5rem;
+      min-width: 3.4rem;
       text-align: center;
       font-size: .65rem;
       color: var(--muted);
@@ -450,7 +461,131 @@
       font-size: .875rem;
       margin-top: .5rem;
     }
+    .checkbox-row[hidden] { display: none !important; }
     .checkbox-row input { width: auto; }
+    .stock-add input::placeholder { color: #b0aaa4; }
+
+    .seg {
+      display: flex;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+      margin-bottom: .75rem;
+    }
+    .seg button {
+      flex: 1;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 8px;
+      padding: .55rem .5rem;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+    .seg button.active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .stock-hint {
+      font-size: .8rem;
+      color: var(--muted);
+      margin-bottom: .75rem;
+    }
+    .stock-add {
+      display: flex;
+      gap: .5rem;
+      margin-bottom: .5rem;
+    }
+    .modal-body label.checkbox-row {
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: .875rem;
+      font-weight: 500;
+      color: var(--text);
+      margin-top: .25rem;
+    }
+    .stock-add input {
+      flex: 1;
+      width: auto;
+      min-width: 0;
+      padding: .65rem .75rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 16px;
+    }
+    .stock-status {
+      min-height: 1.1rem;
+      font-size: .75rem;
+      color: var(--green);
+      margin: .25rem 0 .75rem;
+    }
+    .stock-group { margin-bottom: 1rem; }
+    .stock-group h3 {
+      font-size: .7rem;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      margin-bottom: .375rem;
+    }
+    .stock-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--bg);
+      border-radius: 10px;
+      padding: .35rem .35rem .35rem .75rem;
+      margin-bottom: .375rem;
+      min-height: 2.75rem;
+    }
+    .stock-row .stock-main {
+      flex: 1;
+      min-width: 0;
+      background: none;
+      border: none;
+      text-align: left;
+      padding: .35rem 0;
+      font-size: .95rem;
+    }
+    .stock-row .stock-main small {
+      display: block;
+      color: var(--muted);
+      font-size: .75rem;
+    }
+    .stock-row input.stock-edit {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .45rem .6rem;
+      font: inherit;
+      font-size: 16px;
+    }
+    .stock-row .btn-always {
+      flex-shrink: 0;
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      font-weight: 700;
+      padding: 0;
+    }
+    .stock-row .btn-always.on {
+      background: var(--promo-bg);
+      color: var(--promo);
+      border-color: transparent;
+    }
+    .check-row { cursor: pointer; }
+    .check-row input[type="checkbox"] {
+      width: 1.2rem;
+      height: 1.2rem;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .check-row .stock-main { cursor: pointer; }
 
     @media (min-width: 600px) {
       header { padding: 1rem 1.5rem; }
@@ -510,10 +645,9 @@
         <p style="font-size:.75rem;color:var(--muted);margin-top:.25rem">
           Lien partagé de la liste les Avengers (slug ≠ id API). Visible après push.
         </p>
-        <label for="setWeekly">courses-hebdo.txt</label>
-        <textarea id="setWeekly" spellcheck="false"></textarea>
-        <label for="setPantry">garde-manger.txt</label>
-        <textarea id="setPantry" spellcheck="false"></textarea>
+        <p class="stock-hint" style="margin-top:1rem">
+          Le garde-manger se coche avant l’analyse. Les courses hebdo se règlent juste avant le push.
+        </p>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeSettings()">Annuler</button>
@@ -534,22 +668,30 @@
         cmd: 'exports/semaine.txt',
         action: 'kookd',
       },
+      pantry: {
+        title: 'Étape 2 — Garde-manger',
+        body: 'Coche les ingrédients de l’export Kookd que tu as déjà. Ils rejoignent le garde-manger permanent et ne seront pas rachetés à l’analyse.',
+      },
       week: {
-        title: 'Étape 2 — Analyse semaine',
-        body: 'Analyse l’export Kookd, le garde-manger et les courses hebdo, puis ouvre la validation.',
+        title: 'Étape 3 — Analyse semaine',
+        body: 'Analyse l’export Kookd, le garde-manger mis à jour et les courses hebdo, puis ouvre la validation.',
         cmd: 'uv run python main.py week exports/semaine.txt',
         job: 'week',
       },
       validate: {
-        title: 'Étape 3 — Validation',
+        title: 'Étape 4 — Validation',
         body: 'Ajoutez les favoris manquants, confirmez les quantités estimées, corrigez si besoin.',
       },
+      weekly: {
+        title: 'Étape 5 — Courses hebdo',
+        body: 'Décoche ce que tu ne veux pas cette semaine. Pour ajouter un article, colle le lien de sa fiche Migros : il est ajouté à la liste qui part au push.',
+      },
       push: {
-        title: 'Étape 4 — Push Migros',
+        title: 'Étape 6 — Push Migros',
         body: 'Envoyez les produits validés vers la liste les Avengers. Une quantité en revue ne part pas tant qu’elle n’est pas confirmée.',
       },
       checkout: {
-        title: 'Étape 5 — Checkout',
+        title: 'Étape 7 — Checkout',
         body: 'Ouvrez Migros pour choisir le créneau de livraison et payer.',
       },
     };
@@ -851,6 +993,12 @@
         btn.disabled = false;
         return;
       }
+      if (step === 'pantry') {
+        btn.textContent = 'Enregistrer le garde-manger';
+        btn.onclick = () => savePantry();
+        btn.disabled = false;
+        return;
+      }
       if (step === 'week') {
         const running = session?.job?.status === 'running';
         btn.textContent = 'Analyser semaine';
@@ -861,6 +1009,12 @@
       if (step === 'validate') {
         btn.textContent = s.needs_favorite ? 'Recharger favoris' : 'Actualiser';
         btn.onclick = () => refreshFavorites();
+        btn.disabled = false;
+        return;
+      }
+      if (step === 'weekly') {
+        btn.textContent = 'Valider les courses hebdo';
+        btn.onclick = () => confirmWeekly();
         btn.disabled = false;
         return;
       }
@@ -889,6 +1043,8 @@
 
       let html = renderJobBanner(session.job);
       html += renderGuide(workflow);
+      if (workflow.current_step === 'pantry') html += renderPantryCheck();
+      if (workflow.current_step === 'weekly') html += renderWeeklyBoard();
 
       if (workflow.current_step === 'checkout' || workflow.ui_state?.last_push) {
         html += renderCheckout(workflow);
@@ -1016,12 +1172,110 @@
       }, 2000);
     }
 
+    function renderPantryCheck() {
+      const check = session?.pantry_check;
+      if (!check?.items?.length) {
+        return '<div class="empty">Aucun ingrédient dans l’export Kookd sélectionné.</div>';
+      }
+      const rows = check.items.map(item => {
+        const hint = item.always_buy
+          ? 'Toujours acheté'
+          : (item.covered_by ? `Déjà couvert par ${item.covered_by}` : '');
+        return `
+          <label class="stock-row check-row">
+            <input type="checkbox" class="pantry-check" data-name="${esc(item.name)}"
+              ${item.checked ? 'checked' : ''} ${item.always_buy ? 'disabled' : ''}>
+            <span class="stock-main">
+              ${esc(item.name)}
+              <small>${esc(item.quantity || '')}${hint ? ' · ' + esc(hint) : ''}</small>
+            </span>
+          </label>`;
+      }).join('');
+      return `<section><h2>Dans le garde-manger</h2>${rows}</section>`;
+    }
+
+    async function savePantry() {
+      const checked = [...document.querySelectorAll('.pantry-check:checked')].map(el => el.dataset.name);
+      try {
+        const data = await api('/api/pantry-check', { checked });
+        if (data.still_covered?.length) {
+          toast('Toujours couvert : ' + data.still_covered.join(', '));
+        } else if (data.added?.length) {
+          toast('Ajouté au garde-manger : ' + data.added.join(', '));
+        } else {
+          toast('Garde-manger enregistré');
+        }
+        await refresh({ fresh: true });
+      } catch (e) { toast(e.message); }
+    }
+
+    function renderWeeklyBoard() {
+      const board = session?.weekly_board || { included: [], excluded: [] };
+      const row = (item, checked) => `
+        <label class="stock-row check-row">
+          <input type="checkbox" ${checked ? 'checked' : ''}
+            onchange="${checked ? `excludeWeekly('${esc(item.key)}')` : `restoreWeekly('${esc(item.key)}')`}">
+          <span class="stock-main">
+            ${esc(item.ingredient_name || item.name)}
+            <small>${esc(item.name || '')}${item.package ? ' · ' + esc(item.package) : ''}</small>
+          </span>
+        </label>`;
+      const included = (board.included || []).map(item => row(item, true)).join('')
+        || '<p class="stock-empty">Aucune course hebdo dans la liste.</p>';
+      const excluded = (board.excluded || []).map(item => row(item, false)).join('');
+      return `
+        <section>
+          <h2>Cette semaine</h2>
+          <form class="stock-add" onsubmit="addWeeklyLink(event)">
+            <input id="migrosLink" type="url" inputmode="url" enterkeyhint="done" autocomplete="off"
+              placeholder="https://www.migros.ch/fr/product/…">
+            <button class="btn-primary" type="submit">Ajouter</button>
+          </form>
+          <p class="stock-hint">Le lien est lu dans le catalogue Migros et ajouté à la liste du push.</p>
+          ${included}
+          ${excluded ? '<h2 style="margin-top:1rem">Retirées cette semaine</h2>' + excluded : ''}
+        </section>`;
+    }
+
+    async function excludeWeekly(key) {
+      try {
+        await api('/api/weekly-exclude', { key });
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function restoreWeekly(key) {
+      try {
+        await api('/api/weekly-restore', { key });
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function addWeeklyLink(event) {
+      event.preventDefault();
+      const input = document.getElementById('migrosLink');
+      const url = input.value.trim();
+      if (!url) return;
+      try {
+        await api('/api/weekly-link', { url });
+        input.value = '';
+        toast('Article ajouté à la liste');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
+    async function confirmWeekly() {
+      try {
+        await api('/api/weekly-done', {});
+        toast('Courses hebdo validées');
+        await refresh();
+      } catch (e) { toast(e.message); }
+    }
+
     function openSettings() {
       const s = session?.settings || {};
       document.getElementById('setPortions').value = s.portions || 8;
       document.getElementById('setBasePortions').value = s.base_portions || 8;
-      document.getElementById('setWeekly').value = s.weekly_text || '';
-      document.getElementById('setPantry').value = s.pantry_text || '';
       document.getElementById('setListUrl').value = s.list_url || s.list_slug || '';
       const sel = document.getElementById('setRecipe');
       const exports = s.recipe_exports || [];
@@ -1042,8 +1296,6 @@
           base_portions: parseInt(document.getElementById('setBasePortions').value, 10),
           recipe_export: document.getElementById('setRecipe').value,
           list_url: document.getElementById('setListUrl').value.trim(),
-          weekly_text: document.getElementById('setWeekly').value,
-          pantry_text: document.getElementById('setPantry').value,
         });
         session.settings = data.settings;
         session.shared_list_url = data.settings.list_url || null;
@@ -1067,11 +1319,25 @@
       } catch (e) { toast(e.message); }
     }
 
-    async function refresh() {
+    async function refresh(opts = {}) {
+      const fresh = opts.fresh === true;
+      const pantryDraft = !fresh
+        ? [...document.querySelectorAll('.pantry-check')].map(el => [el.dataset.name, el.checked])
+        : null;
+      const linkDraft = !fresh ? (document.getElementById('migrosLink')?.value || '') : '';
       try {
         session = await fetch('/api/session').then(r => r.json());
         if (session.job?.status === 'running') pollJob();
         render();
+        if (pantryDraft) {
+          for (const [name, checked] of pantryDraft) {
+            const el = document.querySelector(`.pantry-check[data-name="${CSS.escape(name)}"]`);
+            if (el && !el.disabled) el.checked = checked;
+          }
+        }
+        if (linkDraft && document.getElementById('migrosLink')) {
+          document.getElementById('migrosLink').value = linkDraft;
+        }
       } catch (e) {
         toast('Erreur : ' + e.message);
       }

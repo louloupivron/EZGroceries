@@ -26,7 +26,11 @@ class PantryStock:
         return Amount(self.quantity, self.unit)
 
 
-def _parse_pantry_line(line: str) -> tuple[str, float | None, str | None]:
+def _parse_pantry_line(
+    line: str,
+    *,
+    preserve_case: bool = False,
+) -> tuple[str, float | None, str | None]:
     """
     Parse pantry lines:
       riz 2 kg
@@ -34,6 +38,15 @@ def _parse_pantry_line(line: str) -> tuple[str, float | None, str | None]:
       huile en tout genre
     """
     text = line.strip()
+
+    def _name(value: str) -> str:
+        value = value.strip()
+        return value if preserve_case else value.lower()
+
+    def _unit(value: str) -> str:
+        value = value.strip()
+        return value if preserve_case else value.lower()
+
     leading_qty = re.match(
         r"^(?P<qty>\d+(?:[.,]\d+)?)\s+(?P<unit>[a-zàâäéèêëïîôùûüç.]+)\s+(?P<name>.+)$",
         text,
@@ -41,9 +54,9 @@ def _parse_pantry_line(line: str) -> tuple[str, float | None, str | None]:
     )
     if leading_qty:
         return (
-            leading_qty.group("name").strip().lower(),
+            _name(leading_qty.group("name")),
             float(leading_qty.group("qty").replace(",", ".")),
-            leading_qty.group("unit").strip().lower(),
+            _unit(leading_qty.group("unit")),
         )
 
     trailing_qty = re.match(
@@ -53,12 +66,12 @@ def _parse_pantry_line(line: str) -> tuple[str, float | None, str | None]:
     )
     if trailing_qty:
         return (
-            trailing_qty.group("name").strip().lower(),
+            _name(trailing_qty.group("name")),
             float(trailing_qty.group("qty").replace(",", ".")),
-            trailing_qty.group("unit").strip().lower(),
+            _unit(trailing_qty.group("unit")),
         )
 
-    return text.lower(), None, None
+    return _name(text), None, None
 
 
 def load_pantry(path: Path) -> tuple[list[PantryStock], list[PantryStock]]:

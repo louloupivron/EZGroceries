@@ -13,10 +13,12 @@ SESSION_PATH = ROOT / "data" / "validation_session.json"
 
 STEPS = (
     {"id": "kookd", "label": "Kookd", "short": "1"},
-    {"id": "week", "label": "Analyse", "short": "2"},
-    {"id": "validate", "label": "Validation", "short": "3"},
-    {"id": "push", "label": "Push", "short": "4"},
-    {"id": "checkout", "label": "Checkout", "short": "5"},
+    {"id": "pantry", "label": "Garde-manger", "short": "2"},
+    {"id": "week", "label": "Analyse", "short": "3"},
+    {"id": "validate", "label": "Validation", "short": "4"},
+    {"id": "weekly", "label": "Hebdo", "short": "5"},
+    {"id": "push", "label": "Push", "short": "6"},
+    {"id": "checkout", "label": "Checkout", "short": "7"},
 )
 
 
@@ -38,6 +40,10 @@ def set_kookd_done(done: bool = True) -> dict:
     state = load_ui_state()
     state["kookd_done"] = done
     state["kookd_done_at"] = datetime.now(timezone.utc).isoformat()
+    if done:
+        state["pantry_done_for"] = ""
+        state["weekly_done_for"] = ""
+        state["analysis_stale"] = True
     save_ui_state(state)
     return state
 
@@ -69,6 +75,13 @@ def compute_workflow(session: dict | None) -> dict:
     recipe_files = _recipe_exports()
 
     kookd_done = bool(ui.get("kookd_done")) or bool(recipe_files)
+    recipe_name = ui.get("recipe_export") or (recipe_files[-1].name if recipe_files else None)
+    if recipe_name:
+        recipe_name = Path(str(recipe_name)).name
+    session_name = None
+    if session and session.get("recipe"):
+        session_name = Path(str(session["recipe"])).name
+    pantry_done = bool(recipe_name) and ui.get("pantry_done_for") == recipe_name
     has_session = bool(session and session.get("resolved"))
     needs_fav = len(session.get("needs_favorite", [])) if session else 0
     pending = sum(
@@ -79,17 +92,25 @@ def compute_workflow(session: dict | None) -> dict:
     ) if session else 0
     resolved_count = len(session.get("resolved", [])) if session else 0
 
-    validate_done = has_session and needs_fav == 0 and pending == 0 and manual == 0 and resolved_count > 0
-    week_done = has_session and resolved_count > 0
+    week_done = (
+        pantry_done
+        and has_session
+        and resolved_count > 0
+        and not ui.get("analysis_stale")
+    )
+    validate_done = week_done and needs_fav == 0 and pending == 0 and manual == 0 and resolved_count > 0
+    weekly_done = validate_done and bool(session_name) and ui.get("weekly_done_for") == session_name
 
     last_push = ui.get("last_push") or {}
-    push_done = bool(last_push.get("at")) and last_push.get("checkout", {}).get("ok")
+    push_done = weekly_done and bool(last_push.get("at")) and last_push.get("checkout", {}).get("ok")
     checkout_done = push_done and bool(last_push.get("checkout", {}).get("checkoutUrl"))
 
     flags = {
         "kookd": kookd_done,
+        "pantry": pantry_done,
         "week": week_done,
         "validate": validate_done,
+        "weekly": weekly_done,
         "push": push_done,
         "checkout": checkout_done,
     }
@@ -123,5 +144,7 @@ def compute_workflow(session: dict | None) -> dict:
             "portions": ui.get("portions"),
             "base_portions": ui.get("base_portions"),
             "recipe_export": ui.get("recipe_export"),
+            "pantry_done_for": ui.get("pantry_done_for") or "",
+            "weekly_done_for": ui.get("weekly_done_for") or "",
         },
     }

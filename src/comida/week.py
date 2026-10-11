@@ -99,6 +99,13 @@ def run_week(
     session = build_validation_session(result)
     session = apply_favorites_workflow(session, favorite_products, promo_ids)
     path = save_session(session)
+    from comida.prep import clear_weekly_confirmation
+    from comida.ui.workflow import load_ui_state, save_ui_state
+
+    ui = load_ui_state()
+    ui["analysis_stale"] = False
+    save_ui_state(ui)
+    clear_weekly_confirmation()
 
     fav_resolved = session.get("favorites_resolved", [])
     needs_fav = session.get("needs_favorite", [])
