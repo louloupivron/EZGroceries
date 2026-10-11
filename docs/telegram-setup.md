@@ -118,7 +118,7 @@ Rappels **courses Comida** via le topic Comida :
 | Quand | Commande | Contenu |
 |-------|----------|---------|
 | **Jeudi matin** | `validate.py telegram-schedule thu-am` | Rappel de la liste **les Avengers** + lien Migros |
-| **Jeudi soir** | `validate.py telegram-schedule thu-pm` | Rappel si liste vide, sinon contenu actuel de la liste |
+| **Jeudi soir** | `validate.py telegram-schedule thu-pm` | Rappel **uniquement** si la liste est encore vide |
 | **Vendredi matin** | `validate.py telegram-schedule fri-am` | Export Kookd + commande `main.py week` + lien interface |
 
 La liste est fixe : **les Avengers** (`MIGROS_SHOPPING_LIST_NAME`, ou `COMIDA_WEEK_LIST_NAME` pour la forcer). Il n’y a plus une liste `S3`, `S4`… par semaine.
@@ -261,7 +261,7 @@ Commandes utiles :
 | `validate.py telegram-setup` | Découvrir chat_id / topic_id |
 | `validate.py telegram-test` | Message de test dans le topic |
 | `validate.py telegram-schedule thu-am` | Message jeudi matin (nouvelle liste) |
-| `validate.py telegram-schedule thu-pm` | Message jeudi soir (rappel / résumé) |
+| `validate.py telegram-schedule thu-pm` | Rappel jeudi soir si liste vide |
 | `validate.py telegram-schedule fri-am` | Message vendredi matin (Kookd + `main.py week`) |
 | `validate.py send <fichier>` | Envoyer un fichier texte manuellement |
 

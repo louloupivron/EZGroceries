@@ -14,7 +14,6 @@ from comida.week_list import (
     list_exists,
     list_item_count,
     list_link_hint,
-    list_products_raw,
     week_key,
     week_list_name_from_env,
 )
@@ -123,44 +122,29 @@ def send_thursday_morning(*, force: bool = False) -> dict:
 
 
 def send_thursday_evening(*, force: bool = False) -> dict:
-    """
-    Jeudi soir — rappel si liste vide, sinon résumé brut (avant filtrage).
-    """
+    """Jeudi soir — rappel uniquement si la liste est encore vide."""
     state = load_schedule_state()
     list_name = current_week_list_name(state)
     count = list_item_count(list_name)
 
-    if count == 0:
-        text = "\n".join([
-            f"⏰ Rappel — liste {list_name}",
-            "",
-            "Aucun article ajouté pour l'instant.",
-            "Ajoutez les promos Migros du jeudi sur la liste avant demain matin.",
-            "",
-            list_link_hint(list_name),
-        ])
-        return _send(text, force=force, step="thu_pm")
+    if count > 0:
+        if not force and _already_sent("thu_pm", state):
+            return {"skipped": True, "reason": f"déjà envoyé (thu_pm) pour {state.get('week_key')}"}
+        current_week_list_name(state)
+        _mark_sent("thu_pm", state)
+        return {
+            "skipped": True,
+            "reason": f"liste {list_name} déjà remplie ({count} article(s)) — pas de message",
+        }
 
-    products = list_products_raw(list_name)
-    body = "\n".join(f"• {name}" for name in products)
-    intro = (
-        "Voici la liste de promotions de la semaine, n'hésitez pas à rajouter "
-        "des trucs qui vous font envie jusqu'à demain matin !"
-    )
     text = "\n".join([
-        f"📋 Liste {list_name} — {len(products)} article(s)",
+        f"⏰ Rappel — liste {list_name}",
         "",
-        intro,
+        "Aucun article ajouté pour l'instant.",
+        "Ajoutez les promos Migros du jeudi sur la liste avant demain matin.",
         "",
-        body,
+        list_link_hint(list_name),
     ])
-    if len(text) > 4000:
-        _send(
-            f"📋 Liste {list_name} — {len(products)} article(s)\n\n{intro}",
-            force=force,
-            step=None,
-        )
-        return _send(body, force=force, step="thu_pm")
     return _send(text, force=force, step="thu_pm")
 
 
