@@ -17,3 +17,6 @@ node_modules/
 
 # Runtime cache
 data/promo_cache.json
+
+# Backups taken by scripts/update.sh
+data/backups/

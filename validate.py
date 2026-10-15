@@ -29,7 +29,6 @@ from comida.validation import (
     validation_summary,
     reject_current,
     refresh_favorites_workflow,
-    SESSION_PATH,
 )
 from comida.favorites import fetch_favorites_with_details, format_favorites_list
 

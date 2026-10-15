@@ -1,0 +1,6 @@
+# Lint rules for CI and the pre-commit hook. Pyflakes and syntax errors only: unused imports, undefined names,
+# repeated dict keys and the like. The style rules are left out.
+target-version = "py312"
+
+[lint]
+select = ["E9", "F"]

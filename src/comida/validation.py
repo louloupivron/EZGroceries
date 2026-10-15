@@ -271,7 +271,7 @@ def save_session(session: dict, path: Path = SESSION_PATH) -> Path:
 
 def load_session(path: Path = SESSION_PATH) -> dict:
     if not path.exists():
-        raise FileNotFoundError(f"Aucune session : lancez `uv run python main.py prepare <recette>`")
+        raise FileNotFoundError("Aucune session : lancez `uv run python main.py prepare <recette>`")
     return json.loads(path.read_text(encoding="utf-8"))
 
 

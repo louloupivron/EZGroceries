@@ -1,0 +1,67 @@
+# Runs on every pull request and on every push to main. Each job is one GitHub status check; branch protection on
+# main lists them as required, so a PR can't merge until they all pass.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same PR cancels the run for the old commit. Runs on main all finish, so each merge gets a result.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# The jobs only read the code. Nothing here can push, comment or touch releases, and no job uses a secret, so a
+# pull request from a fork runs the same checks on GitHub's machines with nothing to steal.
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    env:
+      RUFF_VERSION: 0.16.8           # keep in step with .pre-commit-config.yaml
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uvx ruff@${RUFF_VERSION} check .
+      - run: shellcheck scripts/update.sh   # telegram-schedule.sh is zsh, which shellcheck can't read
+      - run: uv sync --frozen
+      - run: uv run pytest
+
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci                  # fails if package-lock.json is out of step with package.json
+      - run: for f in scripts/*.mjs; do node --check "$f"; done
+
+  # Builds the image the way the server does, so a broken Dockerfile or dependency fails here and not on the server.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build .
+
+  # Scans every commit in the history for tokens and keys, Telegram bot tokens included. The pre-commit hook
+  # catches them before they leave your laptop; this job catches the ones pushed from a clone without the hook.
+  secrets:
+    runs-on: ubuntu-latest
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0             # the whole history, not only the last commit
+      - name: Install gitleaks
+        run: |
+          curl -sSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          echo "${GITLEAKS_SHA256}  gitleaks.tgz" | sha256sum --check
+          tar xzf gitleaks.tgz gitleaks && rm gitleaks.tgz
+      - run: ./gitleaks git . --redact --verbose
