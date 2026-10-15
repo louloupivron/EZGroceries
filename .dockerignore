@@ -14,4 +14,5 @@ __pycache__/
 agent-transcripts/
 *.md
 !docker/README.md
+!README.md
 .DS_Store

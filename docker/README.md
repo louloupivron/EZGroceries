@@ -1,6 +1,6 @@
 # Comida sur Docker (optionnel — NAS ou serveur)
 
-> **Workflow actuel :** Mac local + Tailscale pour le téléphone. Docker n’est pas nécessaire.
+> Sur le serveur maison, mets à jour avec `scripts/update.sh` plutôt que `git pull`. Voir « Serveur (Docker) » dans le [README](../README.md).
 
 UI Comida accessible 24/7 depuis le téléphone (même Wi‑Fi ou via Tailscale).
 

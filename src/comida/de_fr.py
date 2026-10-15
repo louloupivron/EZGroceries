@@ -143,8 +143,6 @@ WORDS: dict[str, str] = {
     "classic": "",
     "filet": "",
     "am": "",
-    "stuck": "piece",
-    "stück": "piece",
     "frisch": "",
     "bio": "",
     "emmi": "",
