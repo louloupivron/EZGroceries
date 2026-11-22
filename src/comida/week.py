@@ -96,8 +96,14 @@ def run_week(
     promo_ids_list, _, _ = fetch_promotions_cached(force_refresh=refresh_promos)
     promo_ids = set(promo_ids_list)
 
+    from comida.list_catalog import load_shopping_list_catalog
+
+    try:
+        list_catalog = load_shopping_list_catalog(target_list)
+    except (OSError, RuntimeError, ValueError):
+        list_catalog = []
     session = build_validation_session(result)
-    session = apply_favorites_workflow(session, favorite_products, promo_ids)
+    session = apply_favorites_workflow(session, favorite_products, promo_ids, list_catalog)
     path = save_session(session)
     from comida.prep import clear_weekly_confirmation
     from comida.ui.workflow import load_ui_state, save_ui_state

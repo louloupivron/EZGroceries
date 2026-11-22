@@ -70,15 +70,15 @@ def _labels_align(ingredient_name: str, label: str, extra_terms: list[str]) -> b
     return False
 
 
-def match_ingredient_to_list(
+def ranked_list_products(
     ingredient: Ingredient,
     catalog: list[ListProduct],
     promo_ids: set[int],
     *,
     min_score: float = 78,
     used_uids: set[int] | None = None,
-) -> ProductMatch | None:
-    """Pick the best product from the shopping list for this ingredient."""
+) -> list[tuple[ListProduct, float]]:
+    """Shopping-list products that could be this ingredient, best score first."""
     terms = search_terms(ingredient.name)
     blocked = used_uids or set()
     candidates: list[tuple[ListProduct, float]] = []
@@ -98,10 +98,28 @@ def match_ingredient_to_list(
             score += 5
         candidates.append((item, score))
 
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    return candidates
+
+
+def match_ingredient_to_list(
+    ingredient: Ingredient,
+    catalog: list[ListProduct],
+    promo_ids: set[int],
+    *,
+    min_score: float = 78,
+    used_uids: set[int] | None = None,
+) -> ProductMatch | None:
+    """Pick the best product from the shopping list for this ingredient."""
+    candidates = ranked_list_products(
+        ingredient,
+        catalog,
+        promo_ids,
+        min_score=min_score,
+        used_uids=used_uids,
+    )
     if not candidates:
         return None
-
-    candidates.sort(key=lambda x: x[1], reverse=True)
     best_item, best_score = candidates[0]
     second_score = candidates[1][1] if len(candidates) > 1 else 0
     ambiguous = len(candidates) > 1 and (best_score - second_score) < 8

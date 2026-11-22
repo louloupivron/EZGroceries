@@ -28,9 +28,9 @@
     "accepted_uid": 100033146,
     "backup_uid": null,
     "rejected_uids": [
+      100004913,
       100032638,
-      100041184,
-      100004913
+      100041184
     ]
   },
   "tortillas-ble": {
@@ -63,9 +63,11 @@
   },
   "concombre": {
     "ingredient_label": "Concombre",
-    "accepted_uid": 100012866,
+    "accepted_uid": null,
     "backup_uid": 100024434,
-    "rejected_uids": []
+    "rejected_uids": [
+      100012866
+    ]
   },
   "courgette": {
     "ingredient_label": "Courgette",
@@ -103,9 +105,12 @@
   },
   "mangue": {
     "ingredient_label": "Mangue",
-    "accepted_uid": 100035246,
+    "accepted_uid": null,
     "backup_uid": null,
-    "rejected_uids": []
+    "rejected_uids": [
+      100033445,
+      100035246
+    ]
   },
   "lait-riz": {
     "ingredient_label": "lait de riz",
@@ -248,5 +253,13 @@
     "accepted_uid": 100006231,
     "backup_uid": null,
     "rejected_uids": []
+  },
+  "poivrons-rouges": {
+    "ingredient_label": "Poivrons rouges",
+    "accepted_uid": null,
+    "backup_uid": null,
+    "rejected_uids": [
+      100040542
+    ]
   }
 }

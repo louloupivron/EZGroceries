@@ -31,8 +31,15 @@ from comida.prep import (
     restore_weekly_item,
     weekly_board,
 )
-from comida.ui.settings import read_config_files, save_config_files, save_preferences
-from comida.ui.workflow import compute_workflow, record_push_result, set_kookd_done
+from comida.ui.settings import read_config_files, save_config_files, save_kookd_paste, save_preferences
+from comida.ui.workflow import (
+    compute_workflow,
+    discard_other_week_session,
+    record_push_result,
+    reset_week_session,
+    set_kookd_done,
+    stale_week_reason,
+)
 from comida.week_page import generate_week_page, publish_hint
 from comida.validation import (
     accept_option,
@@ -171,6 +178,10 @@ class ComidaHandler(BaseHTTPRequestHandler):
                 self._api_refresh()
             elif path == "/api/kookd-done":
                 self._api_kookd_done()
+            elif path == "/api/kookd-paste":
+                self._api_kookd_paste()
+            elif path == "/api/reset-week":
+                self._api_reset_week()
             elif path == "/api/settings":
                 self._api_save_settings()
             elif path == "/api/stock":
@@ -206,6 +217,7 @@ class ComidaHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _api_session(self) -> None:
+        discard_other_week_session()
         session = self._load_session_safe()
         if not session:
             workflow = compute_workflow(None)
@@ -329,7 +341,12 @@ class ComidaHandler(BaseHTTPRequestHandler):
     def _api_push(self) -> None:
         data = self._read_json()
         force = data.get("force", False)
-        session = load_session()
+        discard_other_week_session()
+        session = self._load_session_safe()
+        reason = stale_week_reason(session)
+        if reason:
+            self._send_json({"ok": False, "error": reason}, 400)
+            return
         pending = [p for p in session.get("pending", []) if p.get("status") == "pending"]
         manual = [u for u in session.get("unmatched", []) if u.get("status") == "manual"]
         needs_favorite = session.get("needs_favorite", [])
@@ -400,6 +417,20 @@ class ComidaHandler(BaseHTTPRequestHandler):
             "needs_favorite": len(session.get("needs_favorite", [])),
             "workflow": compute_workflow(session),
         })
+
+    def _api_kookd_paste(self) -> None:
+        data = self._read_json()
+        saved = save_kookd_paste(str(data.get("text") or ""))
+        session = self._load_session_safe()
+        self._send_json({
+            "ok": True,
+            **saved,
+            "workflow": compute_workflow(session),
+        })
+
+    def _api_reset_week(self) -> None:
+        reset_week_session()
+        self._send_json({"ok": True, "workflow": compute_workflow(None)})
 
     def _api_kookd_done(self) -> None:
         data = self._read_json()

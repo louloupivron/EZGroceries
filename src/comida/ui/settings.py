@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import os
 import re
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from comida.basket import configured_list_slug, default_list_name, shared_list_url
 from comida.quantities import DEFAULT_PORTIONS
-from comida.ui.workflow import EXPORTS_DIR, load_ui_state, save_ui_state
+from comida.ui.workflow import EXPORTS_DIR, load_ui_state, reset_week_session, save_ui_state
 
 ROOT = Path(__file__).resolve().parents[3]
 ENV_PATH = ROOT / ".env"
@@ -71,6 +72,41 @@ def _update_env_var(key: str, value: str) -> None:
         os.environ.pop(key, None)
 
 
+_MAX_KOOKD_PASTE = 200_000
+
+
+def save_kookd_paste(text: str, *, day: str | None = None) -> dict:
+    """Store a pasted Kookd export and select it as the active recipe."""
+    from comida.parser import parse_kookd_export
+
+    raw = (text or "").replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not raw:
+        raise ValueError("Colle l’export Kookd")
+    if len(raw) > _MAX_KOOKD_PASTE:
+        raise ValueError("Export trop long")
+    ingredients = parse_kookd_export(raw)
+    if not ingredients:
+        raise ValueError("Aucune ligne reconnue — attendu « • 600 g Pommes de terre »")
+
+    name = f"semaine-{day or date.today().isoformat()}.txt"
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    path = EXPORTS_DIR / name
+    payload = raw + "\n"
+    previous = path.read_text(encoding="utf-8") if path.exists() else None
+    path.write_text(payload, encoding="utf-8")
+
+    ui = load_ui_state()
+    unchanged = ui.get("recipe_export") == name and previous == payload
+    if not unchanged:
+        reset_week_session()
+        ui = load_ui_state()
+    ui["recipe_export"] = name
+    ui["kookd_done"] = True
+    ui["kookd_done_at"] = datetime.now(timezone.utc).isoformat()
+    save_ui_state(ui)
+    return {"filename": name, "ingredient_count": len(ingredients)}
+
+
 def save_list_url(url_or_slug: str | None) -> str:
     slug = parse_list_slug(url_or_slug or "")
     _update_env_var(LIST_SLUG_KEY, slug)
@@ -116,9 +152,12 @@ def save_preferences(
         if not path.exists():
             raise ValueError(f"Fichier introuvable : exports/{name}")
         if ui.get("recipe_export") != name:
-            ui["pantry_done_for"] = ""
-            ui["weekly_done_for"] = ""
-            ui["analysis_stale"] = True
+            reset_week_session()
+            ui = load_ui_state()
+            if portions is not None:
+                ui["portions"] = portions
+            if base_portions is not None:
+                ui["base_portions"] = base_portions
         ui["recipe_export"] = name
     save_ui_state(ui)
     if list_url is not None:
