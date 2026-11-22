@@ -36,14 +36,68 @@ def save_ui_state(state: dict) -> None:
     UI_STATE_PATH.write_text(json.dumps(state, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
+def _drop_session_file() -> None:
+    if SESSION_PATH.exists():
+        SESSION_PATH.unlink()
+
+
+def reset_week_session() -> None:
+    """Drop the previous week's matches so a new export starts from a clean list."""
+    _drop_session_file()
+    state = load_ui_state()
+    state["pantry_done_for"] = ""
+    state["weekly_done_for"] = ""
+    state["analysis_stale"] = True
+    state.pop("last_push", None)
+    save_ui_state(state)
+
+
+def discard_other_week_session() -> bool:
+    """Delete a validation session that belongs to another Kookd export.
+
+    The pantry check for the new export is kept.
+    """
+    if not SESSION_PATH.exists():
+        return False
+    try:
+        session = json.loads(SESSION_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return False
+    recipe = Path(str(session.get("recipe") or "")).name
+    active = Path(str(load_ui_state().get("recipe_export") or "")).name
+    if not active or not recipe or recipe == active:
+        return False
+    _drop_session_file()
+    state = load_ui_state()
+    state["weekly_done_for"] = ""
+    state["analysis_stale"] = True
+    state.pop("last_push", None)
+    save_ui_state(state)
+    return True
+
+
+def stale_week_reason(session: dict | None) -> str | None:
+    """Why this session must not be pushed, if it must not."""
+    ui = load_ui_state()
+    active = Path(str(ui.get("recipe_export") or "")).name
+    if not session:
+        if active:
+            return f"Aucune liste pour {active}. Lance l'analyse."
+        return "Aucune liste analysée."
+    recipe = Path(str(session.get("recipe") or "")).name
+    if active and recipe and active != recipe:
+        return f"La liste affichée est encore {recipe}. Lance l'analyse de {active}."
+    if ui.get("analysis_stale"):
+        return "L'analyse n'est plus à jour. Relance-la avant le push."
+    return None
+
+
 def set_kookd_done(done: bool = True) -> dict:
+    if done:
+        reset_week_session()
     state = load_ui_state()
     state["kookd_done"] = done
     state["kookd_done_at"] = datetime.now(timezone.utc).isoformat()
-    if done:
-        state["pantry_done_for"] = ""
-        state["weekly_done_for"] = ""
-        state["analysis_stale"] = True
     save_ui_state(state)
     return state
 
@@ -146,5 +200,6 @@ def compute_workflow(session: dict | None) -> dict:
             "recipe_export": ui.get("recipe_export"),
             "pantry_done_for": ui.get("pantry_done_for") or "",
             "weekly_done_for": ui.get("weekly_done_for") or "",
+            "analysis_stale": bool(ui.get("analysis_stale")),
         },
     }

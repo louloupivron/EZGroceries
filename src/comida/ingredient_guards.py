@@ -120,8 +120,26 @@ _RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = [
         ("karotte", "karotten", "carotte", "carrot"),
     ),
     (
+        ("pour burger", "pain burger"),
+        (
+            "burger bun",
+            "burger buns",
+            "burgerbrot",
+            "burger brot",
+            "brioche",
+        ),
+        ("hot dog", "hotdog", "wein", "wine", "kochwein", "rotwein", "weisswein"),
+    ),
+    (
         ("pain brioch", "brioche"),
-        ("brioche", "brioche", "hefezopf", "zopf"),
+        (
+            "brioche",
+            "hefezopf",
+            "zopf",
+            "burger bun",
+            "burger buns",
+            "burgerbrot",
+        ),
         ("wein", "wine", "kochwein", "rotwein", "weisswein"),
     ),
     (
@@ -153,6 +171,46 @@ _RULES: list[tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]] = [
         ("poivron", "poivrons"),
         ("peperoni", "paprika", "poivron", "bell pepper"),
         ("tartinade", "spread", "dip", "sauce", "côté jardin", "cote jardin"),
+    ),
+    (
+        ("saucisse", "saucisses", "bratwurst"),
+        ("saucisse", "bratwurst", "schweinsbratwurst"),
+        ("hotdog", "hot dog", "merguez", "chipolata", "cervelas", "wienerli"),
+    ),
+    (
+        ("poulet entier",),
+        ("ganz", "entier"),
+        ("geschnetzelt", "émincé", "emince", "brust", "schenkel", "nugget"),
+    ),
+    (
+        ("saumon fum",),
+        ("rauchlachs", "rauch", "fumé", "fume", "smoked"),
+        ("graved", "gravlax", "gravad"),
+    ),
+    (
+        ("chou-fleur", "choufleur", "chou fleur"),
+        ("blumenkohl", "chou-fleur", "choufleur"),
+        ("brokkoli", "broccoli", "romanesco"),
+    ),
+    (
+        ("brocoli",),
+        ("brokkoli", "broccoli", "brocoli"),
+        ("romanesco",),
+    ),
+    (
+        ("edamame",),
+        ("edamame",),
+        (),
+    ),
+    (
+        ("rösti", "rosti", "röschti"),
+        ("rösti", "rosti", "roesti"),
+        (),
+    ),
+    (
+        ("concombre",),
+        ("gurke", "concombre"),
+        ("chirat", "cornichon", "gewürz", "gewurz", "eingelegt", "sauer"),
     ),
     (
         ("farine",),

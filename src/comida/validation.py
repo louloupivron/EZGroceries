@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-from comida.ingredient_guards import product_name_fits_ingredient
+from comida.ingredient_guards import _rule_for, product_name_fits_ingredient
 from comida.matcher import _display_name, _price_chf, _product_id
 from comida.budget import estimate_basket, format_budget_summary, format_basket_enriched
 from comida.quantities import compute_basket_quantity
@@ -279,21 +279,29 @@ def _parse_basket_quantity(quantity: str | None, package: str | None = None):
     return compute_basket_quantity(quantity, package)
 
 
+def _session_items(session: dict):
+    for collection in ("pending", "resolved", "unmatched", "needs_favorite"):
+        for item in session.get(collection, []):
+            yield collection, item
+
+
 def find_item_by_key(session: dict, key_fragment: str) -> tuple[dict | None, str | None]:
-    """Return (item, collection) where collection is pending | resolved | unmatched | needs_favorite."""
+    """Return (item, collection) where collection is pending | resolved | unmatched | needs_favorite.
+
+    An exact key wins over a shorter fragment, so « lait » does not hit « lait de riz ».
+    """
     fragment = key_fragment.lower().replace("_", "-")
-    for item in session.get("pending", []):
+    items = list(_session_items(session))
+    for collection, item in items:
+        if item.get("key", "").lower() == fragment:
+            return item, collection
+    for collection, item in items:
+        name = item.get("ingredient_name", "").lower()
+        if name == fragment or name.replace(" ", "-") == fragment:
+            return item, collection
+    for collection, item in items:
         if _key_matches(fragment, item):
-            return item, "pending"
-    for item in session.get("resolved", []):
-        if _key_matches(fragment, item):
-            return item, "resolved"
-    for item in session.get("unmatched", []):
-        if _key_matches(fragment, item):
-            return item, "unmatched"
-    for item in session.get("needs_favorite", []):
-        if _key_matches(fragment, item):
-            return item, "needs_favorite"
+            return item, collection
     return None, None
 
 
@@ -651,10 +659,52 @@ def _resolved_entry(
     }
 
 
+def _list_product_fits(ingredient_name: str, name: str, label: str) -> bool:
+    """Accept the Migros name, or a French label when the name is not a different cut."""
+    if product_name_fits_ingredient(ingredient_name, name):
+        return True
+    if not label or not product_name_fits_ingredient(ingredient_name, label):
+        return False
+    rule = _rule_for(ingredient_name)
+    if rule and any(term in name.lower() for term in rule[1]):
+        return False
+    return True
+
+
+def _shopping_list_option(ingredient_name: str, catalog: list, promo_ids: set[int]) -> dict | None:
+    """Product already on the Migros list, when it is the same food."""
+    from comida.list_catalog import ranked_list_products
+    from comida.parser import Ingredient
+
+    if not catalog:
+        return None
+    ingredient = Ingredient(
+        quantity=1,
+        unit="pièce",
+        name=ingredient_name,
+        raw=f"- 1 pièce {ingredient_name}",
+    )
+    for item, _score in ranked_list_products(ingredient, catalog, promo_ids):
+        product = item.product
+        name = _display_name(product)
+        if not _list_product_fits(ingredient_name, name, item.label):
+            continue
+        uid = item.uid
+        return {
+            "uid": uid,
+            "name": name,
+            "package": (product.get("offer") or {}).get("quantity"),
+            "price_chf": _price_chf(product),
+            "on_promotion": bool(uid and uid in promo_ids),
+        }
+    return None
+
+
 def apply_favorites_workflow(
     session: dict,
     favorite_products: list[dict],
     promo_ids: set[int],
+    list_catalog: list | None = None,
 ) -> dict:
     """Auto-resolve promos, then favorites. Only unmatched items need a new favorite."""
     from comida.favorites import match_ingredient_to_favorite
@@ -691,6 +741,10 @@ def apply_favorites_workflow(
                 return
             if favorite and name_ok(favorite.get("name", "")):
                 resolved.append(_resolved_entry(key, ingredient_name, quantity, favorite, "favorite"))
+                return
+            on_list = _shopping_list_option(ingredient_name, list_catalog or [], promo_ids)
+            if on_list:
+                resolved.append(_resolved_entry(key, ingredient_name, quantity, on_list, "shopping_list"))
                 return
             needs_favorite.append({
                 "key": key,
@@ -732,6 +786,11 @@ def apply_favorites_workflow(
             resolved.append(_resolved_entry(key, ingredient_name, quantity, compatible_search[0], "search"))
             return
 
+        on_list = _shopping_list_option(ingredient_name, list_catalog or [], promo_ids)
+        if on_list:
+            resolved.append(_resolved_entry(key, ingredient_name, quantity, on_list, "shopping_list"))
+            return
+
         needs_favorite.append({
             "key": key,
             "ingredient_name": ingredient_name,
@@ -749,13 +808,11 @@ def apply_favorites_workflow(
         )
 
     for item in list(session.get("unmatched", [])):
-        if item.get("status") != "manual":
-            continue
         process_ingredient(
             item["key"],
             item["ingredient_name"],
-            item.get("quantity", "?"),
-            [],
+            item.get("quantity") or "?",
+            item.get("options") or [],
         )
 
     session["pending"] = []
@@ -831,15 +888,51 @@ def rebuild_pending_for_refresh(session: dict) -> dict:
     return session
 
 
+def _recipe_quantity_by_name(session: dict) -> dict[str, str]:
+    path = session.get("recipe")
+    if not path:
+        return {}
+    try:
+        text = Path(path).read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    from comida.parser import parse_kookd_export
+
+    return {
+        ing.name.lower(): f"{ing.quantity:g} {ing.unit}"
+        for ing in parse_kookd_export(text)
+    }
+
+
+def _restore_missing_quantities(session: dict) -> None:
+    quantities = _recipe_quantity_by_name(session)
+    if not quantities:
+        return
+    for collection in ("pending", "unmatched", "needs_favorite"):
+        for item in session.get(collection, []):
+            if item.get("quantity") not in (None, "", "?"):
+                continue
+            quantity = quantities.get((item.get("ingredient_name") or "").lower())
+            if quantity:
+                item["quantity"] = quantity
+
+
 def refresh_favorites_workflow(session: dict) -> dict:
     """Re-fetch favorites and re-apply workflow on current session."""
     from comida.favorites import fetch_favorites_with_details
     from comida.promo_cache import fetch_promotions_cached
 
+    from comida.list_catalog import load_shopping_list_catalog
+
+    _restore_missing_quantities(session)
     favorite_products = fetch_favorites_with_details()
     promo_ids = set(fetch_promotions_cached()[0])
+    try:
+        list_catalog = load_shopping_list_catalog(session.get("list_name"))
+    except (OSError, RuntimeError, ValueError):
+        list_catalog = []
     rebuild_pending_for_refresh(session)
-    return apply_favorites_workflow(session, favorite_products, promo_ids)
+    return apply_favorites_workflow(session, favorite_products, promo_ids, list_catalog)
 
 
 def confirm_quantity(session: dict, key_fragment: str) -> dict:

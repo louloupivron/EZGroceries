@@ -32,8 +32,11 @@ EXTRA_TERMS: dict[str, list[str]] = {
     "soja": ["soja", "sojasauce"],
     "origan": ["oregano", "origano", "oregan"],
     "concombre": ["gurke", "gurken"],
+    "roquette": ["rucola", "rukkola", "rocket"],
     "courgette": ["zucchetti", "zucchini"],
     "lardons": ["speck", "speckwürfel", "bacon"],
+    "saucisse": ["bratwurst", "schweinsbratwurst", "saucisse", "saucisses"],
+    "saucisses": ["bratwurst", "schweinsbratwurst", "saucisse"],
     "saumon": ["lachs", "salmon"],
     "crème": ["rahm", "creme"],
     "algue": ["nori", "algae"],
@@ -67,6 +70,18 @@ def search_terms(ingredient_name: str) -> list[str]:
     low_name = ingredient_name.lower()
     if "lait de riz" in low_name or "boisson de riz" in low_name or "boisson au riz" in low_name:
         terms.extend(["reisdrink", "reismilch", "rice drink"])
+    if "chou-fleur" in low_name or "choufleur" in low_name or "chou fleur" in low_name:
+        terms.extend(["blumenkohl", "chou-fleur"])
+    if "edamame" in low_name:
+        terms.extend(["edamame"])
+    if "brocoli" in low_name:
+        terms.extend(["brokkoli", "broccoli"])
+    if any(token in low_name for token in ("rösti", "rosti", "röschti")):
+        terms.extend(["rösti", "rosti"])
+    if "poulet entier" in low_name:
+        terms.extend(["poulet ganz", "ganz"])
+    if "saumon fum" in low_name:
+        terms.extend(["rauchlachs"])
 
     # unique, preserve order
     seen: set[str] = set()

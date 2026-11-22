@@ -19,6 +19,16 @@ lait de coco
 curry
 fajitas
 épices à fajitas
+Ail
+Vin blanc sec
+Thym frais
+Grenade
+Romarin frais
+Graines de sésame
+Échalote
+Beurre
+Lardons fumés
+Mayonnaise
 
 # Toujours acheter (+), même si un article garde-manger correspond
 + riz à sushi
